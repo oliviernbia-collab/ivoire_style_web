@@ -9,6 +9,7 @@ import { faHeart } from '@fortawesome/free-regular-svg-icons';
 import { ErrorState, Loader, OfficialBadge, Price, ProductImage, ProductMedia, Stars, useFetch } from '../components/ui';
 import { ProductGrid } from '../components/ProductCard';
 import PaymentLogo from '../components/PaymentLogo';
+import DeliveryRates from '../components/DeliveryRates';
 import { useStorefront } from '../context/StorefrontContext';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
@@ -203,7 +204,8 @@ export default function ProductPage() {
               <li><FontAwesomeIcon icon={faTruckFast} /><span>Livraison par la boutique — Abidjan : <b>{price(p.delivery_info.abidjan)}</b> · Intérieur : <b>{price(p.delivery_info.other)}</b>
                 {p.delivery_info.free_threshold > 0 && <><br /><span className="small muted">Offerte dès {price(p.delivery_info.free_threshold)} d’achat</span></>}
                 {p.delivery_info.shop_pickup && <><br /><span className="small muted">Retrait gratuit en boutique</span></>}
-                {p.delivery_info.note && <><br /><span className="small muted">{p.delivery_info.note}</span></>}</span></li>
+                {p.delivery_info.note && <><br /><span className="small muted">{p.delivery_info.note}</span></>}
+                <DeliveryRates zones={p.delivery_info.zones} abidjan={p.delivery_info.abidjan} other={p.delivery_info.other} /></span></li>
               <li><FontAwesomeIcon icon={faShieldHalved} />
                 <span>Paiement Mobile Money sécurisé
                   <span className="pay-row mt-1">

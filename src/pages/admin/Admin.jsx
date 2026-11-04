@@ -68,7 +68,8 @@ export function AdminDashboard() {
         <Stat icon={faChartLine} label="Valeur des commandes (hors annulées)" value={price(d.gmv)} />
         <Stat icon={faCoins} label="Frais plateforme (payés par les clients)" value={price(d.platform_revenue)} />
         <Stat icon={faGift} label="Remises promotionnelles offertes" value={price(d.promo_discounts)} to="/admin/promotions" />
-        <Stat icon={faSackDollar} label="Revenu net (frais − remises)" value={price(d.net_revenue)} />
+        <Stat icon={faRotateLeft} label="Frais de remboursement retenus" value={price(d.refund_fees)} />
+        <Stat icon={faSackDollar} label="Revenu net (frais + frais de remboursement − remises)" value={price(d.net_revenue)} />
         <Stat icon={faMoneyBillTransfer} label="À reverser aux vendeurs" value={price(d.due_to_sellers)} to="/admin/reversements" />
         <Stat icon={faRotateLeft} label="Remboursements" value={price(d.refunds)} />
         <Stat icon={faUsers} label="Utilisateurs actifs" value={d.users} to="/admin/utilisateurs" />
@@ -455,7 +456,7 @@ export function AdminOrderDetail() {
               {o.refunds.map((r) => (
                 <div key={r.id} className="summary-row">
                   <span>{r.reference}{r.failure_reason && <><br /><span className="muted">{r.failure_reason}</span></>}</span>
-                  <span>{price(r.amount)} · {REFUND_STATUS[r.status] || r.status}</span>
+                  <span>{price(r.amount)}{Number(r.fee_amount) > 0 ? ` (+ ${price(r.fee_amount)} retenus)` : ''} · {REFUND_STATUS[r.status] || r.status}</span>
                 </div>
               ))}</>}
           </div>
@@ -469,9 +470,16 @@ export function AdminOrderDetail() {
       )}
       {modal === 'refund' && (
         <Modal title="Rembourser" onClose={() => setModal(null)} footer={<><button className="btn btn-outline" onClick={() => setModal(null)}>Fermer</button>
-          <button className="btn" onClick={() => act(() => api.post(`/admin/orders/${o.id}/refund`, { reason: form.reason, ...(form.amount ? { amount: form.amount } : {}) }))}>Confirmer le remboursement</button></>}>
+          <button className="btn" onClick={() => act(() => api.post(`/admin/orders/${o.id}/refund`, {
+            reason: form.reason, ...(form.amount ? { amount: form.amount } : {}),
+            ...(form.refund_phone ? { refund_phone: form.refund_phone } : {}),
+          }))}>Confirmer le remboursement</button></>}>
           <div className="stack">
-            <Field label="Montant (FCFA)" hint="Laisser vide pour rembourser la totalité restante"><input className="input" type="number" min="1" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} /></Field>
+            <Field label="Montant (FCFA)" hint="Laisser vide : reste à rembourser moins les frais de remboursement (3 %). Un montant saisi est versé tel quel, sans frais."><input className="input" type="number" min="1" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} /></Field>
+            <Field label="Numéro qui reçoit le remboursement" hint={`Actuellement : ${o.refund_phone || 'inconnu'}. Modifiez-le si le client a saisi un mauvais numéro au paiement.`}>
+              <input className="input" type="tel" value={form.refund_phone ?? ''} placeholder={o.refund_phone || '07 00 00 00 00'}
+                onChange={(e) => setForm({ ...form, refund_phone: e.target.value })} />
+            </Field>
             <Field label="Motif" required><input className="input" value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} /></Field>
           </div>
         </Modal>
@@ -655,6 +663,12 @@ export function AdminPayouts() {
   return (
     <>
       <PageHead icon={faHandHoldingDollar} title="Reversements vendeurs" />
+      <div className="alert alert-gold small mb-2">
+        <FontAwesomeIcon icon={faHandHoldingDollar} />
+        <span>Les reversements sont <b>automatiques</b> : après chaque livraison, la part du vendeur part par virement Jèko sur son compte
+          Mobile Money (délai réglable dans <Link to="/admin/parametres" className="gold">Paramètres</Link>). Le bouton manuel reste utile
+          pour un compte bancaire ou un reversement en échec.</span>
+      </div>
       <h3>Soldes des boutiques</h3>
       <div className="table-wrap mb-3"><table className="table">
         <thead><tr><th>Boutique</th><th>Moyen</th><th>Gains nets</th><th>Solde</th><th /></tr></thead>

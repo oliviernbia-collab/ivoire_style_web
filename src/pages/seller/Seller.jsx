@@ -18,7 +18,8 @@ import {
   BarChart, Empty, ErrorState, Field, Loader, Modal, Pagination, ProductImage, StatusBadge, SubmitButton, useFetch, useForm,
 } from '../../components/ui';
 import {
-  AUDIENCES, date, DELIVERY_MODES, ORDER_STATUS, PAYMENT_PLANS, PAYMENT_STATUS, price, PRODUCT_STATUS, showPaymentStatus,
+  ABIDJAN_COMMUNES, AUDIENCES, CITIES, date, DELIVERY_MODES, ORDER_STATUS, PAYMENT_PLANS, PAYMENT_STATUS, price, PRODUCT_STATUS,
+  showPaymentStatus,
 } from '../../utils/format';
 
 export function SellerLayout() {
@@ -663,6 +664,7 @@ export function SellerFinances() {
       <div className="alert alert-gold mb-3">
         <FontAwesomeIcon icon={faWallet} />
         <span>Commandes en cours : <b>{price(f.upcoming)}</b> déjà payés en ligne, crédités à la livraison.<br />
+          Votre part vous est <b>versée automatiquement</b> sur votre compte Mobile Money après chaque livraison.<br />
           Reversements sur <PaymentLabel code={f.payout_method} size={22} /> <b>{f.payout_account}</b>{f.payout_holder ? ` (${f.payout_holder})` : ''} ·{' '}
           <Link to="/vendeur/boutique#paiement" className="gold">modifier</Link></span>
       </div>
@@ -764,11 +766,12 @@ export function SellerShop() {
         <Field label="Adresse" error={errors.address} className="full"><input className="input" value={values.address} onChange={set('address')} /></Field>
 
         <h3 className="full mb-0 mt-2"><FontAwesomeIcon icon={faTruckFast} className="gold" /> Livraison (gérée par vous)</h3>
-        <p className="full small muted mt-0 mb-0">Vous livrez vous-même vos clients. Les frais ci-dessous sont ajoutés à la commande et vous reviennent intégralement.</p>
-        <Field label="Frais de livraison à Abidjan (FCFA)" error={errors.delivery_fee_abidjan} required>
+        <p className="full small muted mt-0 mb-0">Vous livrez vous-même vos clients. Les frais de livraison sont ajoutés à la commande et vous reviennent intégralement.
+          Ces tarifs par défaut s’appliquent aux zones sans tarif propre : réglez chaque commune et chaque ville <a href="#tarifs-livraison" className="gold">plus bas</a>.</p>
+        <Field label="Tarif par défaut à Abidjan (FCFA)" error={errors.delivery_fee_abidjan} required>
           <input className="input" type="number" min="0" step="100" value={values.delivery_fee_abidjan} onChange={set('delivery_fee_abidjan')} />
         </Field>
-        <Field label="Frais vers l’intérieur du pays (FCFA)" error={errors.delivery_fee_other} required>
+        <Field label="Tarif par défaut à l’intérieur (FCFA)" error={errors.delivery_fee_other} required>
           <input className="input" type="number" min="0" step="100" value={values.delivery_fee_other} onChange={set('delivery_fee_other')} />
         </Field>
         <Field label="Livraison offerte dès (FCFA, 0 = jamais)" error={errors.free_delivery_threshold}>
@@ -796,6 +799,103 @@ export function SellerShop() {
         </Field>
         <div className="full"><SubmitButton loading={submitting}><FontAwesomeIcon icon={faFloppyDisk} /> Enregistrer</SubmitButton></div>
       </form>
+      <DeliveryZonesEditor defaults={{ abidjan: values.delivery_fee_abidjan, other: values.delivery_fee_other }} />
     </>
+  );
+}
+
+const zoneKey = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+
+/**
+ * Tarifs de livraison du vendeur commune par commune (Abidjan) et ville par ville.
+ * Champ vide = tarif par défaut de la boutique ; case décochée = « je ne livre pas dans cette zone ».
+ */
+/** Toutes les communes d'Abidjan, complétées par les tarifs déjà enregistrés (communes ajoutées, villes). */
+function zoneRows(saved) {
+  const byKey = new Map(saved.map((z) => [`${z.zone_type}:${zoneKey(z.name)}`, z]));
+  const communes = ABIDJAN_COMMUNES.map((name) => {
+    const z = byKey.get(`commune:${zoneKey(name)}`);
+    byKey.delete(`commune:${zoneKey(name)}`);
+    return { zone_type: 'commune', name: z?.name || name, fee: z?.fee ?? '', delivers: z ? z.delivers : true };
+  });
+  const extra = [...byKey.values()].map((z) => ({ ...z, fee: z.fee ?? '' }));
+  return [...communes, ...extra.filter((z) => z.zone_type === 'commune'), ...extra.filter((z) => z.zone_type === 'city')];
+}
+
+function DeliveryZonesEditor({ defaults }) {
+  const { data, loading, error, reload } = useFetch('/seller/delivery-zones');
+  if (loading || !data) return error ? <ErrorState message={error} onRetry={reload} /> : <Loader />;
+  // Clé : le formulaire repart des données enregistrées après chaque sauvegarde
+  return <DeliveryZonesForm key={JSON.stringify(data)} saved={data} defaults={defaults} onSaved={() => reload({ silent: true })} />;
+}
+
+function DeliveryZonesForm({ saved, defaults, onSaved }) {
+  const { notify } = useFeedback();
+  const [rows, setRows] = useState(() => zoneRows(saved));
+  const [newCity, setNewCity] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const update = (i, patch) => setRows((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+  const cities = rows.map((r, i) => [r, i]).filter(([r]) => r.zone_type === 'city');
+  const communes = rows.map((r, i) => [r, i]).filter(([r]) => r.zone_type === 'commune');
+  const addCity = (name) => {
+    const n = name.trim();
+    if (n.length < 2) return;
+    if (/abidjan/i.test(n)) { notify.warning('Pour Abidjan, indiquez vos tarifs commune par commune ci-dessus.'); return; }
+    if (rows.some((r) => r.zone_type === 'city' && zoneKey(r.name) === zoneKey(n))) { notify.info(`${n} est déjà dans la liste`); return; }
+    setRows((rs) => [...rs, { zone_type: 'city', name: n, fee: '', delivers: true }]);
+    setNewCity('');
+  };
+  const save = async () => {
+    const bad = rows.find((r) => r.fee !== '' && (Number.isNaN(Number(r.fee)) || Number(r.fee) < 0));
+    if (bad) { notify.error(`Tarif invalide pour ${bad.name}`); return; }
+    setSaving(true);
+    try {
+      const { data: r } = await api.put('/seller/delivery-zones', { zones: rows.map((z) => ({ ...z, fee: z.fee === '' ? null : Number(z.fee) })) });
+      notify.success(r.message);
+      onSaved();
+    } catch (e) { notify.error(apiError(e).message); } finally { setSaving(false); }
+  };
+  const table = (list, def, label) => (
+    <div className="table-wrap"><table className="table">
+      <thead><tr><th>{label}</th><th>Tarif (FCFA)</th><th>Je livre</th>{label === 'Ville' && <th />}</tr></thead>
+      <tbody>{list.map(([r, i]) => (
+        <tr key={`${r.zone_type}-${r.name}`} style={r.delivers ? undefined : { opacity: 0.6 }}>
+          <td><b>{r.name}</b></td>
+          <td style={{ minWidth: 150 }}>
+            <input className="input" type="number" min="0" step="100" value={r.fee} disabled={!r.delivers}
+              onChange={(e) => update(i, { fee: e.target.value })} placeholder={`${price(def)} (défaut)`} aria-label={`Tarif ${r.name}`} />
+          </td>
+          <td><label className="flex small"><input type="checkbox" checked={r.delivers} onChange={(e) => update(i, { delivers: e.target.checked })} /> {r.delivers ? 'Oui' : 'Non'}</label></td>
+          {label === 'Ville' && (
+            <td><button type="button" className="btn btn-ghost btn-sm" onClick={() => setRows((rs) => rs.filter((_, j) => j !== i))} aria-label={`Retirer ${r.name}`}>
+              <FontAwesomeIcon icon={faTrashCan} /></button></td>
+          )}
+        </tr>
+      ))}</tbody>
+    </table></div>
+  );
+
+  return (
+    <div className="card mt-2 stack" id="tarifs-livraison">
+      <div>
+        <div className="card-title mb-0"><FontAwesomeIcon icon={faLocationDot} /> Tarifs de livraison par commune et par ville</div>
+        <p className="small muted mb-0">Fixez un prix pour chaque commune d’Abidjan et chaque ville où vous livrez. Laissez vide pour appliquer
+          votre tarif par défaut ({price(defaults.abidjan)} à Abidjan, {price(defaults.other)} à l’intérieur). Décochez « Je livre » pour une zone
+          que vous ne desservez pas : vos clients n’y pourront que retirer en boutique (si vous l’autorisez).</p>
+      </div>
+      <h4 className="mb-0">Communes d’Abidjan</h4>
+      {table(communes, defaults.abidjan, 'Commune')}
+      <h4 className="mb-0">Villes de l’intérieur</h4>
+      {cities.length > 0 ? table(cities, defaults.other, 'Ville') : <p className="small muted mb-0">Aucune ville ajoutée : votre tarif « intérieur » s’applique partout.</p>}
+      <div className="flex flex-wrap">
+        <input className="input" style={{ maxWidth: 260 }} list="zone-cities" value={newCity} placeholder="Ajouter une ville (ex. : Bouaké)"
+          onChange={(e) => setNewCity(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCity(newCity); } }} />
+        <datalist id="zone-cities">{CITIES.filter((c) => c !== 'Abidjan').map((c) => <option key={c} value={c} />)}</datalist>
+        <button type="button" className="btn btn-outline btn-sm" onClick={() => addCity(newCity)}><FontAwesomeIcon icon={faPlus} /> Ajouter</button>
+      </div>
+      <div><button type="button" className="btn" disabled={saving} onClick={save}>
+        <FontAwesomeIcon icon={faFloppyDisk} /> {saving ? 'Enregistrement…' : 'Enregistrer les tarifs de livraison'}</button></div>
+    </div>
   );
 }

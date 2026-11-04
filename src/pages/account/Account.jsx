@@ -12,7 +12,7 @@ import { useFeedback } from '../../context/FeedbackContext';
 import { useLive } from '../../context/RealtimeContext';
 import { PageHead, SpaceLayout } from '../../components/Layouts';
 import AddressForm from '../../components/AddressForm';
-import { PaymentLabel } from '../../components/PaymentLogo';
+import { PaymentLabel, paymentLabel } from '../../components/PaymentLogo';
 import { ProductGrid } from '../../components/ProductCard';
 import {
   Empty, ErrorState, Field, Loader, Modal, Pagination, ProductImage, StatusBadge, SubmitButton, useFetch, useForm,
@@ -208,6 +208,7 @@ export function OrderDetail() {
   const { confirm, notify, showResult } = useFeedback();
   const [reviewing, setReviewing] = useState(null);
   const [returning, setReturning] = useState(false);
+  const [cancelling, setCancelling] = useState(null);
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -217,15 +218,24 @@ export function OrderDetail() {
   const pendingPayment = o.status === 'pending' && !['succeeded', 'partially_paid'].includes(o.payment_status);
   const lastPayment = o.payments[0];
 
-  const cancel = async () => {
-    const ok = await confirm({ title: 'Annuler cette commande ?', message: 'Les articles seront remis en stock. Si vous avez déjà payé, vous serez remboursé.', confirmLabel: 'Annuler la commande', cancelLabel: 'Garder', danger: true });
-    if (!ok) return;
+  const doCancel = async (refundPhone) => {
     try {
-      const { data } = await api.post(`/orders/${o.id}/cancel`, { reason: 'Annulée par le client' });
+      const { data } = await api.post(`/orders/${o.id}/cancel`, { reason: 'Annulée par le client', refund_phone: refundPhone || undefined });
+      setCancelling(null);
       await showResult({ title: 'Commande annulée', message: data.message, icon: faCircleCheck });
       reload();
     } catch (e) { notify.error(apiError(e).message); }
   };
+  const cancel = async () => {
+    // Déjà payé en ligne : le client confirme le numéro qui recevra le remboursement automatique
+    if (o.refund_phone || ['succeeded', 'partially_paid'].includes(o.payment_status)) {
+      setCancelling({ phone: (o.refund_phone || '').replace(/^\+225/, '') });
+      return;
+    }
+    const ok = await confirm({ title: 'Annuler cette commande ?', message: 'Les articles seront remis en stock.', confirmLabel: 'Annuler la commande', cancelLabel: 'Garder', danger: true });
+    if (ok) doCancel();
+  };
+  const refundPhoneOk = /^(01|05|07)\d{8}$/.test((cancelling?.phone || '').replace(/\D/g, '').replace(/^(00)?225/, ''));
 
   const sendReturn = async () => {
     setBusy(true);
@@ -339,6 +349,29 @@ export function OrderDetail() {
           <Field label="Motif du retour" hint="10 caractères minimum (taille, défaut, article non conforme…)">
             <textarea className="textarea" value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} />
           </Field>
+        </Modal>
+      )}
+      {cancelling && (
+        <Modal title="Annuler la commande" onClose={() => setCancelling(null)}
+          footer={<><button className="btn btn-outline" onClick={() => setCancelling(null)}>Garder ma commande</button>
+            <button className="btn btn-danger" disabled={!refundPhoneOk} onClick={() => doCancel(cancelling.phone)}>
+              <FontAwesomeIcon icon={faBan} /> Annuler et être remboursé</button></>}>
+          <div className="stack">
+            <p className="mb-0">Les articles seront remis en stock et la somme payée en ligne vous sera <b>remboursée automatiquement</b>.</p>
+            {o.refund_estimate && (
+              <div className="pay-split">
+                <div className="summary-row"><span>Payé en ligne</span><b>{price(o.refund_estimate.paid)}</b></div>
+                <div className="summary-row small muted"><span>Frais de remboursement ({o.refund_estimate.rate} %)</span><span>− {price(o.refund_estimate.fee)}</span></div>
+                <div className="summary-row"><span>Vous serez remboursé de</span><b>{price(o.refund_estimate.amount)}</b></div>
+              </div>
+            )}
+            <Field label={`Numéro ${o.refund_provider ? paymentLabel(o.refund_provider) : 'Mobile Money'} qui recevra le remboursement`} required
+              error={cancelling.phone && !refundPhoneOk ? 'Numéro ivoirien à 10 chiffres (01, 05 ou 07…)' : null}
+              hint="Vérifiez qu’il s’agit bien de votre compte : le remboursement y sera envoyé.">
+              <input className="input" type="tel" value={cancelling.phone} placeholder="07 00 00 00 00"
+                onChange={(e) => setCancelling({ phone: e.target.value })} />
+            </Field>
+          </div>
         </Modal>
       )}
     </>

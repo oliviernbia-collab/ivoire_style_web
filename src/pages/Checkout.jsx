@@ -6,7 +6,7 @@ import {
   faCheck, faPen, faTicket, faXmark, faCircleCheck, faCircleExclamation, faGift, faMoneyBillWave, faCircleHalfStroke,
   faMobileScreenButton, faHandHoldingDollar,
 } from '@fortawesome/free-solid-svg-icons';
-import api from '../api/client';
+import api, { apiError } from '../api/client';
 import { useCart } from '../context/CartContext';
 import AddressForm from '../components/AddressForm';
 import { Loader, ProductImage, SubmitButton, useFetch, useForm } from '../components/ui';
@@ -24,6 +24,7 @@ export default function Checkout() {
   const myPromos = useFetch('/account/promotions');
   const [editing, setEditing] = useState(null);
   const [quote, setQuote] = useState(null);
+  const [quoteError, setQuoteError] = useState(null);
   const [promoInput, setPromoInput] = useState('');
 
   // Une commande = une boutique (paramètre ?boutique=, ou la seule boutique du panier)
@@ -47,7 +48,9 @@ export default function Checkout() {
     api.post('/orders/quote', {
       shop_id: shopId, address_id: values.address_id, delivery_mode: values.delivery_mode,
       payment_plan: values.payment_plan, promo_code: values.promo_code || undefined,
-    }).then((r) => setQuote(r.data.data)).catch(() => setQuote(null));
+    }).then((r) => { setQuote(r.data.data); setQuoteError(null); })
+      // Ex. : zone non desservie par la boutique → message affiché à l'étape Livraison
+      .catch((e) => { setQuote(null); setQuoteError(apiError(e).message); });
   }, [shopId, values.address_id, values.delivery_mode, values.payment_plan, values.promo_code, cart.subtotal]);
 
   if (!cartReady || addresses.loading) return <Loader />;
@@ -112,10 +115,12 @@ export default function Checkout() {
                 <label key={o.mode} className={`choice ${quote?.delivery_mode === o.mode ? 'on' : ''}`}>
                   <input type="radio" name="mode" checked={quote?.delivery_mode === o.mode} onChange={() => set('delivery_mode')(o.mode)} />
                   <span className="ic"><FontAwesomeIcon icon={MODE_ICONS[o.mode] || faTruckFast} /></span>
-                  <span className="grow">{o.label}<div className="small muted">{o.fee === 0 ? 'Gratuit' : price(o.fee)}</div></span>
+                  <span className="grow">{o.label}<div className="small muted">
+                    {o.fee === 0 ? 'Gratuit' : price(o.fee)}{o.zone ? ` · ${o.zone}` : ''}</div></span>
                 </label>
               ))}
             </div>
+            {quoteError && <div className="alert alert-danger small"><FontAwesomeIcon icon={faCircleExclamation} /> {quoteError}</div>}
             {quote?.shop?.delivery_info && <p className="small muted mt-1 mb-0"><FontAwesomeIcon icon={faTruckFast} /> {quote.shop.delivery_info}</p>}
           </section>
 

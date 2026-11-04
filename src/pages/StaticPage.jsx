@@ -27,6 +27,8 @@ const PAGES = {
     ['Délai', 'Vous disposez de 7 jours après la livraison pour demander un retour depuis votre espace « Mes commandes ».'],
     ['Conditions', 'Les articles doivent être non portés, non lavés et dans leur état d’origine. Les articles personnalisés ou sur mesure peuvent être exclus.'],
     ['Remboursement', 'Après réception et contrôle, le remboursement est effectué sur le moyen de paiement d’origine.'],
+    ['Annulation', 'Une commande payée peut être annulée tant qu’elle n’est pas en préparation. La somme payée en ligne est remboursée automatiquement '
+      + 'sur le numéro Mobile Money que vous confirmez, après déduction de 3 % de frais de remboursement conservés par Ivoire Style.'],
   ]],
   cgu: ['Conditions d’utilisation', [
     ['Objet', 'Les présentes conditions encadrent l’utilisation du site et de l’application Ivoire Style.'],

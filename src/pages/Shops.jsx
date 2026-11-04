@@ -8,6 +8,7 @@ import { Filters, useParamsState } from './Catalog';
 import { fileUrl } from '../api/client';
 import { date, price } from '../utils/format';
 import { absoluteUrl, breadcrumbLd, shareImage, snippet, useSeo } from '../utils/seo';
+import DeliveryRates from '../components/DeliveryRates';
 
 export function ShopList() {
   const [q, setQ] = useState('');
@@ -101,6 +102,7 @@ export function ShopPage() {
               {shop.allow_shop_pickup ? ' · retrait gratuit en boutique' : ''}
               {shop.delivery_info ? ` — ${shop.delivery_info}` : ''}
             </p>
+            <DeliveryRates zones={shop.delivery_zones} abidjan={Number(shop.delivery_fee_abidjan)} other={Number(shop.delivery_fee_other)} />
           </div>
         </div>
       </div>

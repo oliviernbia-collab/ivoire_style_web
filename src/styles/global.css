@@ -674,3 +674,9 @@ button { font-family: inherit; }
 @media (max-width: 400px) {
   .hide-xs { display: none !important; }
 }
+
+/* Tarifs de livraison par commune / ville (fiche produit, page boutique) */
+.delivery-rates summary { list-style: none; font-weight: 600; }
+.delivery-rates summary::-webkit-details-marker { display: none; }
+.delivery-rates-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+.plain-list { list-style: none; margin: 6px 0; padding: 0; display: grid; gap: 4px; }

@@ -101,5 +101,5 @@ export const AUDIENCES = {
   homme: 'Homme', femme: 'Femme', enfant: 'Enfant', bebe: 'Bébé', unisexe: 'Unisexe',
 };
 
-export const CITIES = ['Abidjan', 'Bouaké', 'Yamoussoukro', 'San-Pédro', 'Daloa', 'Korhogo', 'Man', 'Gagnoa', 'Abengourou', 'Grand-Bassam', 'Divo', 'Soubré'];
+export const CITIES = ['Abidjan', 'Abengourou', 'Aboisso', 'Adzopé', 'Agboville', 'Agnibilékrou', 'Bondoukou', 'Bongouanou', 'Bouaflé', 'Bouaké', 'Bouna', 'Boundiali', 'Dabou', 'Daloa', 'Danané', 'Daoukro', 'Dimbokro', 'Divo', 'Duékoué', 'Ferkessédougou', 'Gagnoa', 'Grand-Bassam', 'Grand-Lahou', 'Guiglo', 'Issia', 'Jacqueville', 'Katiola', 'Korhogo', 'Lakota', 'Man', 'Mankono', 'Odienné', 'Oumé', 'San-Pédro', 'Sassandra', 'Séguéla', 'Sinfra', 'Soubré', 'Tabou', 'Tanda', 'Tiassalé', 'Tingréla', 'Touba', 'Toumodi', 'Vavoua', 'Yamoussoukro', 'Zuénoula'];
 export const ABIDJAN_COMMUNES = ['Abobo', 'Adjamé', 'Attécoubé', 'Cocody', 'Koumassi', 'Marcory', 'Plateau', 'Port-Bouët', 'Treichville', 'Yopougon', 'Bingerville', 'Songon', 'Anyama'];

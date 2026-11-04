@@ -223,8 +223,9 @@ export default function Payment() {
             ))}
           </div>
         </div>
-        <Field label="Numéro Mobile Money" error={phoneError} required
-          hint={USSD.includes(current) ? 'Vous recevrez une demande de code secret sur ce numéro.' : 'Le numéro du compte qui paie.'}>
+        <Field label={`Votre numéro ${paymentLabel(current)}`} error={phoneError} required
+          hint={`${USSD.includes(current) ? 'Vous recevrez une demande de code secret sur ce numéro. ' : 'Saisissez le numéro du compte qui va payer. '}`
+            + 'En cas d’annulation, le remboursement y sera envoyé.'}>
           <input className="input" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="07 00 00 00 00" />
         </Field>
         {settings?.payment_mode === 'sandbox' && (
