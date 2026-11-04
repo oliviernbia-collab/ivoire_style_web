@@ -6,6 +6,7 @@ import Footer, { StorefrontFooter } from './components/Footer';
 import ResponsiveTables from './components/ResponsiveTables';
 import { StorefrontEntry, StorefrontGuard, useStorefront } from './context/StorefrontContext';
 import { RequireAuth } from './components/Layouts';
+import { applySeo } from './utils/seo';
 import Home from './pages/Home';
 import Catalog from './pages/Catalog';
 import ProductPage from './pages/ProductPage';
@@ -51,6 +52,23 @@ function ScrollToTop() {
   return null;
 }
 
+// Pages privées ou sans intérêt pour les moteurs de recherche : jamais indexées
+const PRIVATE_PAGES = [
+  ['/compte', 'Mon compte'], ['/vendeur', 'Espace vendeur'], ['/admin', 'Administration'], ['/panier', 'Mon panier'],
+  ['/commande', 'Validation de la commande'], ['/paiement', 'Paiement'], ['/connexion', 'Connexion'],
+  ['/inscription', 'Créer un compte'], ['/mot-de-passe-oublie', 'Mot de passe oublié'],
+  ['/reinitialiser-mot-de-passe', 'Nouveau mot de passe'], ['/b/', 'Boutique'],
+];
+
+function PrivatePagesSeo() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    const page = PRIVATE_PAGES.find(([prefix]) => pathname === prefix || pathname.startsWith(prefix.endsWith('/') ? prefix : `${prefix}/`));
+    if (page) applySeo({ title: page[1], noindex: true });
+  }, [pathname]);
+  return null;
+}
+
 export default function App() {
   const { pathname } = useLocation();
   // Le panneau d'administration (barre fixe sur toute la hauteur) n'affiche pas le pied de page public
@@ -60,6 +78,7 @@ export default function App() {
   return (
     <>
       <ScrollToTop />
+      <PrivatePagesSeo />
       <ResponsiveTables />
       <Header />
       <main style={{ minHeight: '60vh' }}>

@@ -7,8 +7,12 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      '/api': 'http://localhost:5000',
+      // ws : le temps réel (Socket.IO, /api/v1/realtime) passe aussi par ce proxy
+      '/api': { target: 'http://localhost:5000', ws: true },
       '/uploads': 'http://localhost:5000',
+      // Référencement : générés par l'API (en production, même règle de réécriture vers l'API)
+      '/robots.txt': 'http://localhost:5000',
+      '/sitemap.xml': 'http://localhost:5000',
     },
   },
 });

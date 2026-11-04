@@ -170,14 +170,16 @@ export function BarChart({ data, valueKey = 'total', labelKey = 'day', format = 
 export function useFetch(url, params, deps = []) {
   const [state, setState] = useState({ data: null, meta: null, loading: true, error: null });
   const key = JSON.stringify(params || {});
-  const load = useCallback(async () => {
+  // reload({ silent: true }) : mise à jour en arrière-plan (temps réel), sans indicateur de chargement
+  const load = useCallback(async (opts) => {
     if (!url) return;
-    setState((s) => ({ ...s, loading: true, error: null }));
+    if (!opts?.silent) setState((s) => ({ ...s, loading: true, error: null }));
     try {
       const { data } = await api.get(url, { params });
       setState({ data: data.data, meta: data.meta || null, loading: false, error: null });
     } catch (e) {
-      setState({ data: null, meta: null, loading: false, error: apiError(e).message });
+      // En arrière-plan, une erreur réseau ne remplace pas les données déjà affichées
+      if (!opts?.silent) setState({ data: null, meta: null, loading: false, error: apiError(e).message });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [url, key, ...deps]);

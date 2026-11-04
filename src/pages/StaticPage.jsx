@@ -3,6 +3,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCompass, faEnvelope, faPhone, faLocationDot, faPaperPlane } from '@fortawesome/free-solid-svg-icons';
 import { Empty, Field, SubmitButton, useForm } from '../components/ui';
 import { useFeedback } from '../context/FeedbackContext';
+import { useSeo } from '../utils/seo';
 
 // Contenus indicatifs : à faire valider juridiquement avant le lancement.
 const PAGES = {
@@ -77,10 +78,19 @@ function Contact() {
 
 export default function StaticPage() {
   const { slug } = useParams();
+  const page = PAGES[slug];
+  // FAQ : questions / réponses balisées pour les résultats enrichis Google
+  const faqLd = slug === 'faq' && page ? {
+    '@context': 'https://schema.org', '@type': 'FAQPage',
+    mainEntity: page[1].map(([q, a]) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: a } })),
+  } : null;
+  useSeo(slug === 'contact'
+    ? { title: 'Contact', description: 'Contactez le service client Ivoire Style : téléphone +225 07 12176799, e-mail contact@ivoirestyle.ci, Cocody, Abidjan.', path: '/page/contact' }
+    : page ? { title: page[0], description: page[1].map(([, t]) => t).join(' '), path: `/page/${slug}`, jsonLd: faqLd }
+      : { title: 'Page introuvable', noindex: true });
   if (slug === 'contact') {
     return <div className="container section"><h1 className="brand-title">Contact</h1><Contact /></div>;
   }
-  const page = PAGES[slug];
   if (!page) return <NotFound />;
   const [title, sections] = page;
   return (
@@ -92,6 +102,7 @@ export default function StaticPage() {
 }
 
 export function NotFound() {
+  useSeo({ title: 'Page introuvable', noindex: true });
   return (
     <div className="container">
       <Empty icon={faCompass} title="Page introuvable" text="La page que vous cherchez n’existe pas ou a été déplacée.">

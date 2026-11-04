@@ -11,6 +11,7 @@ import { useFeedback } from '../context/FeedbackContext';
 import { Field, Loader, SubmitButton, useFetch, useForm } from '../components/ui';
 import { PayoutPicker } from '../components/PaymentLogo';
 import { ABIDJAN_COMMUNES, CITIES } from '../utils/format';
+import { useSeo } from '../utils/seo';
 
 const BENEFITS = [
   [faStore, 'Votre boutique en ligne', 'Une vitrine à votre nom, visible sur le web et l’application.'],
@@ -94,6 +95,12 @@ function StatusCard({ shop }) {
 export default function BecomeSeller() {
   const { user, ready, setUser } = useAuth();
   const { showResult } = useFeedback();
+  useSeo({
+    title: 'Vendre en ligne sur Ivoire Style',
+    description: 'Ouvrez votre boutique de vêtements en ligne en Côte d’Ivoire : aucune commission sur vos ventes, paiement Mobile Money, '
+      + 'vous fixez vos prix et vos frais de livraison. Inscription gratuite, validation sous 48 h.',
+    path: '/vendre',
+  });
   const shopFull = useFetch(user?.shop ? '/seller/shop' : null);
   const { data: pub } = useFetch('/settings/public');
   const fee = pub?.platform_fee_rate ?? 5;

@@ -9,6 +9,7 @@ import {
 import api, { apiError } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { useFeedback } from '../../context/FeedbackContext';
+import { useLive } from '../../context/RealtimeContext';
 import { PageHead, SpaceLayout } from '../../components/Layouts';
 import AddressForm from '../../components/AddressForm';
 import { PaymentLabel } from '../../components/PaymentLogo';
@@ -141,6 +142,7 @@ export function Addresses() {
 export function Orders() {
   const [page, setPage] = useState(1);
   const { data, meta, loading, error, reload } = useFetch('/orders', { page });
+  useLive(['order', 'payment', 'refund', 'return'], () => reload({ silent: true }));
   return (
     <>
       <PageHead icon={faBoxOpen} title="Mes commandes" />
@@ -202,6 +204,7 @@ function ReviewModal({ item, onClose, onDone }) {
 export function OrderDetail() {
   const { id } = useParams();
   const { data: o, loading, error, reload } = useFetch(`/orders/${id}`);
+  useLive(['order', 'payment', 'refund', 'return'], () => reload({ silent: true }));
   const { confirm, notify, showResult } = useFeedback();
   const [reviewing, setReviewing] = useState(null);
   const [returning, setReturning] = useState(false);
@@ -392,6 +395,7 @@ export function Wishlist() {
 
 export function Notifications() {
   const { data, loading, error, reload } = useFetch('/account/notifications');
+  useLive('*', () => reload({ silent: true }));
   const { notify } = useFeedback();
   const navigate = useNavigate();
   const readAll = async () => {

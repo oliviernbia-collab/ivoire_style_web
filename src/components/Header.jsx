@@ -7,6 +7,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import logo from '../assets/logo.png';
 import { useAuth } from '../context/AuthContext';
+import { useLive } from '../context/RealtimeContext';
 import { useCart } from '../context/CartContext';
 import { useFeedback } from '../context/FeedbackContext';
 import { useFetch } from './ui';
@@ -68,6 +69,10 @@ export default function Header() {
     if (!user) return setUnread(0);
     api.get('/account/notifications').then((r) => setUnread(r.data.data.unread)).catch(() => {});
   }, [user, location.pathname]);
+  // Nouvelle notification en temps réel : pastille mise à jour sans recharger la page
+  useLive('*', () => {
+    if (user) api.get('/account/notifications').then((r) => setUnread(r.data.data.unread)).catch(() => {});
+  });
 
   const search = (e) => {
     e.preventDefault();

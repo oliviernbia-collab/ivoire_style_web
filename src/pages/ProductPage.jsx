@@ -13,6 +13,53 @@ import { useStorefront } from '../context/StorefrontContext';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { AUDIENCES, date, price } from '../utils/format';
+import { absoluteUrl, breadcrumbLd, shareImage, snippet, useSeo } from '../utils/seo';
+
+function productSeo(p) {
+  const url = absoluteUrl(`/produit/${p.slug}`);
+  const images = p.images.filter((im) => im.media_type !== 'video').map((im) => im.url);
+  const prices = p.variants.map((v) => Number(v.price)).filter((n) => n > 0);
+  const inStock = p.variants.some((v) => v.stock > 0);
+  const product = {
+    '@type': 'Product',
+    name: p.name,
+    url,
+    image: images.length ? images : undefined,
+    description: snippet(p.description, 500),
+    sku: p.variants[0]?.sku || String(p.id),
+    category: p.category_name,
+    brand: { '@type': 'Brand', name: p.shop_name },
+    material: p.material || undefined,
+    audience: p.audience ? { '@type': 'PeopleAudience', suggestedGender: { homme: 'male', femme: 'female' }[p.audience] || 'unisex' } : undefined,
+    offers: {
+      '@type': 'AggregateOffer',
+      priceCurrency: 'XOF',
+      lowPrice: Math.min(...prices),
+      highPrice: Math.max(...prices),
+      offerCount: p.variants.length,
+      availability: inStock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+      seller: { '@type': 'Organization', name: p.shop_name, url: absoluteUrl(`/boutique/${p.shop_slug}`) },
+    },
+  };
+  if (p.rating_count > 0) {
+    product.aggregateRating = { '@type': 'AggregateRating', ratingValue: Number(p.rating_avg), reviewCount: p.rating_count };
+    product.review = p.reviews.slice(0, 5).map((r) => ({
+      '@type': 'Review', author: { '@type': 'Person', name: r.author }, datePublished: String(r.created_at).slice(0, 10),
+      reviewRating: { '@type': 'Rating', ratingValue: r.rating, bestRating: 5 }, reviewBody: r.comment || undefined,
+    }));
+  }
+  return {
+    title: `${p.name} – ${p.shop_name}`,
+    description: `${p.name} à partir de ${price(Math.min(...prices))} chez ${p.shop_name}. ${p.description || ''}`,
+    path: `/produit/${p.slug}`,
+    type: 'product',
+    image: shareImage(images[0]),
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@graph': [product, breadcrumbLd([['Accueil', '/'], [p.category_name, `/catalogue?category=${p.category_slug}`], [p.name, `/produit/${p.slug}`]])],
+    },
+  };
+}
 
 export default function ProductPage() {
   const { slug } = useParams();
@@ -43,6 +90,9 @@ export default function ProductPage() {
   const sizes = useMemo(() => p?.variants.filter((v) => v.color === color) || [], [p, color]);
   const variant = sizes.find((v) => v.size === size);
   const shown = variant || sizes[0] || p?.variants[0];
+
+  // Fiche produit schema.org : prix (XOF), disponibilité, avis et vendeur — éligible aux résultats enrichis Google
+  useSeo(p ? productSeo(p) : {}, Boolean(p));
 
   if (loading) return <Loader />;
   if (error) return <div className="container"><ErrorState message={error} onRetry={reload} /></div>;

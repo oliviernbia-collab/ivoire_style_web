@@ -21,9 +21,18 @@ export const tokens = {
 
 const api = axios.create({ baseURL: API_URL, timeout: 20000 });
 
+/** Adresse du serveur temps réel : même origine que l'API (proxy Vite en développement). */
+export const REALTIME_URL = /^https?:\/\//.test(API_URL) ? new URL(API_URL).origin : undefined;
+
+// Heure de la dernière action de l'utilisateur (POST, PATCH…) : évite d'afficher en double
+// la notification temps réel d'une action qu'il vient lui-même de faire
+let lastActionAt = 0;
+export const recentOwnAction = (ms = 4000) => Date.now() - lastActionAt < ms;
+
 api.interceptors.request.use((config) => {
   const t = tokens.access;
   if (t) config.headers.Authorization = `Bearer ${t}`;
+  if (config.method && config.method !== 'get') lastActionAt = Date.now();
   return config;
 });
 

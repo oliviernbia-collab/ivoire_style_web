@@ -11,6 +11,7 @@ import { faWhatsapp, faFacebookF } from '@fortawesome/free-brands-svg-icons';
 import api, { apiError, fileUrl } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { useFeedback } from '../../context/FeedbackContext';
+import { useLive } from '../../context/RealtimeContext';
 import { PageHead, SpaceLayout } from '../../components/Layouts';
 import { PaymentLabel, PayoutPicker } from '../../components/PaymentLogo';
 import {
@@ -49,7 +50,11 @@ function Stat({ icon, label, value }) {
 /** Lien de vitrine à partager (publicités, réseaux sociaux) : le client n'y voit que les produits de la boutique. */
 export function ShopLinkCard({ slug, name, compact = false }) {
   const { notify } = useFeedback();
-  const url = `${window.location.origin}/b/${slug}`;
+  const { data: settings } = useFetch('/settings/public');
+  // Lien de partage servi par l'API : WhatsApp et Facebook y lisent le nom, la description et l'image de la
+  // boutique (aperçu), puis le visiteur est redirigé vers la vitrine. Sinon, lien direct vers la vitrine.
+  const base = settings?.share_base_url;
+  const url = /^https:\/\//.test(base || '') ? `${base}/partage/b/${slug}` : `${window.location.origin}/b/${slug}`;
   const message = `Découvrez ma boutique ${name} sur Ivoire Style : ${url}`;
   const copy = () => navigator.clipboard?.writeText(url).then(() => notify.success('Lien de la boutique copié'));
   return (
@@ -79,6 +84,7 @@ export function ShopLinkCard({ slug, name, compact = false }) {
 export function SellerDashboard() {
   const { user } = useAuth();
   const { data: d, loading, error, reload } = useFetch('/seller/dashboard');
+  useLive([...['seller_order', 'order', 'return', 'payout', 'refund'], 'moderation'], () => reload({ silent: true }));
   if (loading) return <Loader />;
   if (error) return <ErrorState message={error} onRetry={reload} />;
   return (
@@ -168,6 +174,7 @@ export function SellerProducts() {
   const [q, setQ] = useState('');
   const [search, setSearch] = useState('');
   const { data, meta, loading, error, reload } = useFetch('/seller/products', { page, status, q: search });
+  useLive(['moderation'], () => reload({ silent: true }));
   const { confirm, notify } = useFeedback();
 
   const toggle = async (p) => {
@@ -534,6 +541,7 @@ export function SellerOrders() {
   const [status, setStatus] = useState('');
   const [page, setPage] = useState(1);
   const { data, meta, loading, error, reload } = useFetch('/seller/orders', { status, page });
+  useLive(['seller_order', 'order', 'return', 'payout', 'refund'], () => reload({ silent: true }));
   const { notify } = useFeedback();
   const [shipping, setShipping] = useState(null);
   const [ship, setShip] = useState({ carrier: '', tracking_number: '' });
@@ -636,6 +644,7 @@ export function SellerOrders() {
 
 export function SellerFinances() {
   const { data: f, loading, error, reload } = useFetch('/seller/finances');
+  useLive(['seller_order', 'order', 'return', 'payout', 'refund'], () => reload({ silent: true }));
   if (loading) return <Loader />;
   if (error) return <ErrorState message={error} onRetry={reload} />;
   const TYPES = { sale: 'Payé en ligne', commission: 'Frais plateforme', payout: 'Reversement', refund: 'Remboursement', adjustment: 'Ajustement' };

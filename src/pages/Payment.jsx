@@ -7,6 +7,7 @@ import {
 import api, { apiError } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useFeedback } from '../context/FeedbackContext';
+import { useLive } from '../context/RealtimeContext';
 import { ErrorState, Field, Loader, useFetch } from '../components/ui';
 import PaymentLogo, { paymentLabel } from '../components/PaymentLogo';
 import { PAYMENT_PLANS, price } from '../utils/format';
@@ -59,6 +60,13 @@ export default function Payment() {
     const t = setInterval(tick, POLL_MS);
     return () => { active = false; clearInterval(t); };
   }, [waiting, paymentId]);
+
+  // Confirmation reçue en temps réel (webhook Jèko) : mise à jour immédiate, sans attendre le prochain passage
+  useLive(['payment', 'order'], () => {
+    if (!waiting) return;
+    api.get(`/payments/${paymentId}`).then(({ data }) => setLive(data.data)).catch(() => {});
+    order.reload({ silent: true });
+  });
 
   const status = p?.status;
   useEffect(() => {

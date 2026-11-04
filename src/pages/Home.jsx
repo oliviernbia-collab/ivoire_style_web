@@ -10,6 +10,7 @@ import { ProductGrid } from '../components/ProductCard';
 import { Features } from '../components/Footer';
 import { categoryIcon } from '../utils/icons';
 import { fileUrl } from '../api/client';
+import { SITE_NAME, SITE_URL, useSeo } from '../utils/seo';
 
 function Section({ eyebrow, title, icon, link, children }) {
   return (
@@ -32,6 +33,21 @@ export default function Home() {
   const { user, isSeller } = useAuth();
   const { data, loading, error, reload } = useFetch('/home', null, [user?.id]);
   const sellHref = isSeller ? '/vendeur' : '/vendre';
+  useSeo({
+    path: '/',
+    description: 'Achetez la mode ivoirienne en ligne : tenues africaines, pagnes, boubous, prêt-à-porter homme, femme et enfant '
+      + 'des meilleures boutiques de Côte d’Ivoire. Paiement Orange Money, MTN, Wave, Moov et livraison à domicile.',
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@graph': [
+        { '@type': 'Organization', '@id': `${SITE_URL}/#organisation`, name: SITE_NAME, url: `${SITE_URL}/`, logo: `${SITE_URL}/favicon.png`,
+          contactPoint: { '@type': 'ContactPoint', telephone: '+225-07-12-17-67-99', contactType: 'customer service', areaServed: 'CI', availableLanguage: 'French' } },
+        { '@type': 'WebSite', '@id': `${SITE_URL}/#site`, name: SITE_NAME, url: `${SITE_URL}/`, inLanguage: 'fr-CI',
+          publisher: { '@id': `${SITE_URL}/#organisation` },
+          potentialAction: { '@type': 'SearchAction', target: `${SITE_URL}/catalogue?q={search_term_string}`, 'query-input': 'required name=search_term_string' } },
+      ],
+    },
+  });
 
   return (
     <>

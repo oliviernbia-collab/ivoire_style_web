@@ -6,6 +6,7 @@ import { Empty, ErrorState, Pagination, useFetch } from '../components/ui';
 import { ProductGrid } from '../components/ProductCard';
 import { categoryIcon } from '../utils/icons';
 import { AUDIENCES } from '../utils/format';
+import { breadcrumbLd, useSeo } from '../utils/seo';
 
 const SORTS = { newest: 'Plus récents', popular: 'Popularité', price_asc: 'Prix croissant', price_desc: 'Prix décroissant', rating: 'Mieux notés' };
 
@@ -92,6 +93,20 @@ export default function Catalog() {
   const query = Object.fromEntries(params.entries());
   const { data, meta, loading, error, reload } = useFetch('/products', { limit: 12, ...query });
   const active = [...params.entries()].filter(([k]) => !['page', 'sort'].includes(k));
+  // Référencement : une page par catégorie / public ; recherches et combinaisons de filtres non indexées
+  const { data: categories } = useFetch('/categories');
+  const category = categories?.find((c) => c.slug === query.category);
+  const audience = AUDIENCES[query.audience];
+  const indexable = !query.q && active.every(([k]) => ['category', 'audience'].includes(k)) && active.length <= 1;
+  const heading = [category?.name, audience].filter(Boolean).join(' ') || 'Tous les vêtements';
+  useSeo({
+    title: query.q ? `Recherche « ${query.q} »` : `${heading} – mode ivoirienne en ligne`,
+    description: `${heading} : ${meta?.total ?? 'des centaines d’'} article(s) des boutiques ivoiriennes sur Ivoire Style. `
+      + 'Paiement Mobile Money, en une ou deux fois, et livraison partout en Côte d’Ivoire.',
+    path: `/catalogue${query.category ? `?category=${query.category}` : query.audience ? `?audience=${query.audience}` : ''}`,
+    noindex: !indexable,
+    jsonLd: category ? { '@context': 'https://schema.org', ...breadcrumbLd([['Accueil', '/'], [category.name, `/catalogue?category=${category.slug}`]]) } : null,
+  }, !query.category || Boolean(categories));
 
   return (
     <div className="container catalog">

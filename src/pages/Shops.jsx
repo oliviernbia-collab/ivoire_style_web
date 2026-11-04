@@ -7,12 +7,19 @@ import { ProductGrid } from '../components/ProductCard';
 import { Filters, useParamsState } from './Catalog';
 import { fileUrl } from '../api/client';
 import { date, price } from '../utils/format';
+import { absoluteUrl, breadcrumbLd, shareImage, snippet, useSeo } from '../utils/seo';
 
 export function ShopList() {
   const [q, setQ] = useState('');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const { data, meta, loading, error, reload } = useFetch('/shops', { q: search, page });
+  useSeo({
+    title: 'Boutiques de mode en Côte d’Ivoire',
+    description: 'Découvrez les boutiques et créateurs ivoiriens vérifiés sur Ivoire Style : tenues africaines, prêt-à-porter, '
+      + 'sport et cérémonie. Chaque boutique livre elle-même partout en Côte d’Ivoire.',
+    path: '/boutiques',
+  });
   return (
     <div className="container section">
       <div className="section-head">
@@ -49,6 +56,27 @@ export function ShopPage() {
   const { data: shop, loading, error } = useFetch(`/shops/${slug}`);
   const query = Object.fromEntries(params.entries());
   const products = useFetch(`/shops/${slug}/products`, query);
+  // Boutique : fiche « magasin de vêtements » (schema.org) ; filtres et pages suivantes non indexés
+  const place = shop ? [shop.commune, shop.city].filter(Boolean).join(', ') : '';
+  useSeo(shop ? {
+    title: `${shop.name} – boutique de mode à ${shop.city}`,
+    description: `${shop.name} (${place}) sur Ivoire Style : ${shop.product_count} article(s). ${shop.description || ''}`,
+    path: `/boutique/${shop.slug}`,
+    image: shareImage(shop.banner_url || shop.logo_url),
+    noindex: Object.keys(query).length > 0,
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@graph': [
+        {
+          '@type': 'ClothingStore', name: shop.name, url: absoluteUrl(`/boutique/${shop.slug}`), description: snippet(shop.description, 300),
+          image: shop.logo_url || undefined, telephone: shop.phone || undefined,
+          address: { '@type': 'PostalAddress', addressLocality: shop.city, addressRegion: shop.commune || undefined, addressCountry: 'CI' },
+          ...(shop.rating && shop.review_count ? { aggregateRating: { '@type': 'AggregateRating', ratingValue: shop.rating, reviewCount: shop.review_count } } : {}),
+        },
+        breadcrumbLd([['Accueil', '/'], ['Boutiques', '/boutiques'], [shop.name, `/boutique/${shop.slug}`]]),
+      ],
+    },
+  } : {}, Boolean(shop));
   if (loading) return <Loader />;
   if (error) return <div className="container"><ErrorState message={error} /></div>;
   return (

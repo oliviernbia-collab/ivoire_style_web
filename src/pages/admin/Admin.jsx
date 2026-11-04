@@ -10,6 +10,7 @@ import {
 import api, { apiError, fileUrl } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { useFeedback } from '../../context/FeedbackContext';
+import { useLive } from '../../context/RealtimeContext';
 import { PageHead, SpaceLayout } from '../../components/Layouts';
 import { PaymentLabel } from '../../components/PaymentLogo';
 import {
@@ -22,7 +23,9 @@ import { categoryIcon, CATEGORY_ICON_NAMES } from '../../utils/icons';
 
 export function AdminLayout() {
   const { has } = useAuth();
-  const { data } = useFetch(has('admin') ? '/admin/dashboard' : null);
+  const { data, reload: reloadCounts } = useFetch(has('admin') ? '/admin/dashboard' : null);
+  // Compteurs du menu (boutiques, produits, commandes à traiter) mis à jour en direct
+  useLive('*', () => has('admin') && reloadCounts({ silent: true }), { staff: true });
   const links = has('admin') ? [
     { to: '/admin', end: true, icon: faGaugeHigh, label: 'Tableau de bord' },
     { to: '/admin/boutiques', icon: faStore, label: 'Boutiques', count: data?.shops_pending },
@@ -47,6 +50,7 @@ function Stat({ icon, label, value, to }) {
 
 export function AdminDashboard() {
   const { data: d, loading, error, reload } = useFetch('/admin/dashboard');
+  useLive('*', () => reload({ silent: true }), { staff: true });
   if (loading) return <Loader />;
   if (error) return <ErrorState message={error} onRetry={reload} />;
   return (
@@ -188,6 +192,7 @@ export function AdminShops() {
   const [page, setPage] = useState(1);
   const [open, setOpen] = useState(null);
   const { data, meta, loading, error, reload } = useFetch('/admin/shops', { status, page });
+  useLive('*', () => reload({ silent: true }), { staff: true });
   return (
     <>
       <PageHead icon={faStore} title="Boutiques" />
@@ -227,6 +232,7 @@ export function AdminProducts() {
   const [rejecting, setRejecting] = useState(null);
   const [note, setNote] = useState('');
   const { data, meta, loading, error, reload } = useFetch('/admin/products', { status, page, q: search });
+  useLive('*', () => reload({ silent: true }), { staff: true });
   const { notify } = useFeedback();
 
   const moderate = async (p, action, n) => {
@@ -303,6 +309,7 @@ export function AdminOrders() {
   const [q, setQ] = useState('');
   const [search, setSearch] = useState('');
   const { data, meta, loading, error, reload } = useFetch('/admin/orders', { status, page, q: search });
+  useLive('*', () => reload({ silent: true }), { staff: true });
   return (
     <>
       <PageHead icon={faBoxOpen} title="Commandes" />
@@ -345,6 +352,7 @@ export function AdminOrderDetail() {
   const { has } = useAuth();
   const isAdmin = has('admin');
   const { data: o, loading, error, reload } = useFetch(`/admin/orders/${id}`);
+  useLive('*', () => reload({ silent: true }), { staff: true });
   const { notify, showResult, confirm } = useFeedback();
   const [modal, setModal] = useState(null);
   const [form, setForm] = useState({ reason: '', amount: '', status: 'shipped' });
@@ -624,6 +632,7 @@ export function AdminCategories() {
 // ------------------------------------------------------------- Reversements
 export function AdminPayouts() {
   const { data, loading, error, reload } = useFetch('/admin/payouts');
+  useLive('*', () => reload({ silent: true }), { staff: true });
   const { notify, showResult, confirm } = useFeedback();
   const [creating, setCreating] = useState(null);
   const [amount, setAmount] = useState('');
