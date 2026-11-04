@@ -5,7 +5,7 @@ import {
   faGaugeHigh, faStore, faShirt, faBoxOpen, faUsers, faTags, faHandHoldingDollar, faGear, faClipboardList, faStar,
   faCircleCheck, faCircleXmark, faBan, faRotateLeft, faEye, faMagnifyingGlass, faFileShield, faChartLine, faCoins,
   faUserCheck, faClock, faMoneyBillTransfer, faPlus, faPen, faTrashCan, faFloppyDisk, faArrowLeft, faTruckFast,
-  faCrown, faUserSlash, faUserShield, faGift, faSackDollar, faXmark,
+  faPercent, faCrown, faUserSlash, faUserShield, faGift, faSackDollar, faXmark,
 } from '@fortawesome/free-solid-svg-icons';
 import api, { apiError, fileUrl } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
@@ -67,9 +67,10 @@ export function AdminDashboard() {
       <div className="stats">
         <Stat icon={faChartLine} label="Valeur des commandes (hors annulées)" value={price(d.gmv)} />
         <Stat icon={faCoins} label="Frais plateforme (payés par les clients)" value={price(d.platform_revenue)} />
+        <Stat icon={faPercent} label="Commissions vendeurs (5 % du prix des produits)" value={price(d.seller_commissions)} />
         <Stat icon={faGift} label="Remises promotionnelles offertes" value={price(d.promo_discounts)} to="/admin/promotions" />
         <Stat icon={faRotateLeft} label="Frais de remboursement retenus" value={price(d.refund_fees)} />
-        <Stat icon={faSackDollar} label="Revenu net (frais + frais de remboursement − remises)" value={price(d.net_revenue)} />
+        <Stat icon={faSackDollar} label="Revenu net (frais + commissions + frais de remboursement − remises)" value={price(d.net_revenue)} />
         <Stat icon={faMoneyBillTransfer} label="À reverser aux vendeurs" value={price(d.due_to_sellers)} to="/admin/reversements" />
         <Stat icon={faRotateLeft} label="Remboursements" value={price(d.refunds)} />
         <Stat icon={faUsers} label="Utilisateurs actifs" value={d.users} to="/admin/utilisateurs" />

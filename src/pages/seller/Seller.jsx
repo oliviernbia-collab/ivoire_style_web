@@ -271,6 +271,7 @@ export function SellerProductForm() {
   const { id } = useParams();
   const isNew = !id || id === 'nouveau';
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { showResult, notify } = useFeedback();
   const { data: categories } = useFetch('/categories');
   const { data: pubSettings } = useFetch('/settings/public');
@@ -306,9 +307,11 @@ export function SellerProductForm() {
   if (!isNew && existing.error) return <ErrorState message={existing.error} />;
 
   const keptMedia = images.filter((im) => !removed.includes(im.id));
-  // Le client paie votre prix + les frais plateforme (vous recevez votre prix, sans commission)
+  // Le client paie votre prix + les frais plateforme ; au reversement, la commission vendeur est retenue sur votre prix
   const feeRate = existing.data?.platform_fee_rate ?? pubSettings?.platform_fee_rate ?? 5;
+  const commissionRate = user.shop?.is_official ? 0 : (existing.data?.seller_commission_rate ?? pubSettings?.seller_commission_rate ?? 5);
   const clientPrice = (p) => Math.round(Number(p) * (1 + feeRate / 100));
+  const sellerNet = (p) => Number(p) - Math.round((Number(p) * commissionRate) / 100);
 
   const setV = (i, k) => (e) => setVariants((vs) => vs.map((v, j) => (j === i ? { ...v, [k]: e.target.value } : v)));
   const addFiles = (files) => {
@@ -469,13 +472,15 @@ export function SellerProductForm() {
           </div>
           <div className="alert alert-gold small mb-2">
             <FontAwesomeIcon icon={faCircleInfo} />
-            <span>Saisissez <b>votre prix</b> : c’est ce que vous recevez, sans commission. Le client voit votre prix
-              <b> + {feeRate} %</b> de frais plateforme (colonne « Prix client »).</span>
+            <span>Saisissez <b>votre prix</b>. Le client voit votre prix <b>+ {feeRate} %</b> de frais plateforme (colonne « Prix client »)
+              {commissionRate > 0
+                ? <>, et <b>{commissionRate} % de commission</b> sont retenus sur votre prix au reversement (colonne « Vous recevez »). La livraison vous revient en totalité.</>
+                : <> ; vous recevez votre prix en totalité.</>}</span>
           </div>
           {errors.variants && <div className="alert alert-danger small mb-2">{errors.variants}</div>}
           <div className="table-wrap">
             <table className="table">
-              <thead><tr><th>Taille</th><th>Couleur</th><th>Votre prix (FCFA)</th><th>Prix client</th><th>Votre prix barré</th><th>Stock</th><th /></tr></thead>
+              <thead><tr><th>Taille</th><th>Couleur</th><th>Votre prix (FCFA)</th><th>Prix client</th>{commissionRate > 0 && <th>Vous recevez</th>}<th>Votre prix barré</th><th>Stock</th><th /></tr></thead>
               <tbody>
                 {variants.map((v, i) => (
                   <tr key={v.id || `n${i}`}>
@@ -488,6 +493,9 @@ export function SellerProductForm() {
                     </td>
                     <td><input className="input" type="number" min="0" style={{ minWidth: 100 }} value={v.price} onChange={setV(i, 'price')} aria-label="Votre prix" /></td>
                     <td className="small" style={{ whiteSpace: 'nowrap' }}>{Number(v.price) > 0 ? <b>{price(clientPrice(v.price))}</b> : '—'}</td>
+                    {commissionRate > 0 && (
+                      <td className="small gold" style={{ whiteSpace: 'nowrap' }}>{Number(v.price) > 0 ? <b>{price(sellerNet(v.price))}</b> : '—'}</td>
+                    )}
                     <td><input className="input" type="number" min="0" style={{ minWidth: 100 }} value={v.compare_at_price} onChange={setV(i, 'compare_at_price')} placeholder="—" aria-label="Prix barré" /></td>
                     <td><input className="input" type="number" min="0" style={{ minWidth: 70 }} value={v.stock_quantity} onChange={setV(i, 'stock_quantity')} aria-label="Stock" /></td>
                     <td><button type="button" className="btn btn-ghost btn-sm" disabled={variants.length === 1}
@@ -615,7 +623,7 @@ export function SellerOrders() {
                     Client : <b>{price(o.total_amount)}</b> (dont livraison {price(o.delivery_fee)}) · Payé en ligne : <b>{price(o.upfront_amount)}</b>
                     {o.balance_due > 0 && <> · <b className="gold">À encaisser à la livraison : {price(o.balance_due)}</b></>}
                     {Number(o.balance_amount) > 0 && o.balance_paid_at && <> · Solde encaissé <FontAwesomeIcon icon={faCircleCheck} className="gold" /></>}
-                    <br />Votre part (vos prix + livraison) : <b className="gold">{price(o.seller_amount)}</b>
+                    <br />Votre part nette (vos prix + livraison{Number(o.seller_commission) > 0 ? ` − commission ${price(o.seller_commission)}` : ''}) : <b className="gold">{price(o.seller_amount)}</b>
                   </span>
                   {next && (
                     <button className="btn btn-sm" onClick={() => (next === 'shipped' ? (setShipping(first), setShip({ carrier: '', tracking_number: '' })) : advance(first, next, {}, o))}>
@@ -654,7 +662,7 @@ export function SellerFinances() {
       <PageHead icon={faWallet} title="Finances" />
       <div className="stats">
         <Stat icon={faChartLine} label="Encaissé en ligne (commandes livrées)" value={price(f.gross_sales)} />
-        <Stat icon={faPercent} label={`Frais plateforme (${f.platform_fee_rate} % payés par les clients)`} value={price(f.commissions)} />
+        <Stat icon={faPercent} label={`Frais plateforme (${f.platform_fee_rate} % client) et commission (${f.seller_commission_rate} %)`} value={price(f.commissions)} />
         <Stat icon={faCoins} label="Dû par la plateforme" value={price(f.net_earned)} />
         <Stat icon={faMoneyBillWave} label="À encaisser vous-même à la livraison" value={price(f.to_collect)} />
         <Stat icon={faCircleCheck} label="Déjà reversé" value={price(f.paid_out)} />
@@ -754,7 +762,7 @@ export function SellerShop() {
         <div className="full flex">
           <div className="shop-logo" style={{ width: 80, height: 80 }}>{shop.logo_url ? <img src={fileUrl(shop.logo_url)} alt="" /> : shop.name[0]}</div>
           <div><b className="brand-title" style={{ fontSize: '1.2rem' }}>{shop.name}</b>
-            <div className="small muted">Aucune commission : le client paie vos prix + frais plateforme · Validée le {date(shop.approved_at)}</div></div>
+            <div className="small muted">{shop.is_official ? 'Boutique officielle : sans commission' : 'Commission de 5 % sur vos prix, retenue au reversement (livraison exclue)'} · Validée le {date(shop.approved_at)}</div></div>
         </div>
         <Field label="Nouveau logo"><input className="input" type="file" accept="image/*" onChange={(e) => setFiles({ ...files, logo: e.target.files[0] })} /></Field>
         <Field label="Bannière"><input className="input" type="file" accept="image/*" onChange={(e) => setFiles({ ...files, banner: e.target.files[0] })} /></Field>

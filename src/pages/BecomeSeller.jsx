@@ -97,7 +97,7 @@ export default function BecomeSeller() {
   const { showResult } = useFeedback();
   useSeo({
     title: 'Vendre en ligne sur Ivoire Style',
-    description: 'Ouvrez votre boutique de vêtements en ligne en Côte d’Ivoire : aucune commission sur vos ventes, paiement Mobile Money, '
+    description: 'Ouvrez votre boutique de vêtements en ligne en Côte d’Ivoire : paiement Mobile Money, reversement automatique, '
       + 'vous fixez vos prix et vos frais de livraison. Inscription gratuite, validation sous 48 h.',
     path: '/vendre',
   });
@@ -226,7 +226,8 @@ export default function BecomeSeller() {
           </div>
           <div className="alert alert-gold small mt-2">
             <FontAwesomeIcon icon={faBullhorn} />
-            <span>Aucune commission sur vos ventes : vous fixez votre prix, la plateforme ajoute {fee} % payés par le client.
+            <span>Vous fixez votre prix : la plateforme ajoute {fee} % payés par le client, et retient {pub?.seller_commission_rate ?? 5} % de
+              commission sur votre prix au reversement (votre livraison vous revient en totalité).
               Vous gérez vos livraisons et vos frais de livraison. Les montants payés en ligne sont reversés sur ce compte après livraison.</span>
           </div>
         </section>
