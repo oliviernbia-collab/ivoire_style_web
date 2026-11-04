@@ -8,11 +8,11 @@ import {
 import logo from '../assets/logo.png';
 import { useAuth } from '../context/AuthContext';
 import { useLive } from '../context/RealtimeContext';
+import { UserAvatar } from './Avatar';
 import { useCart } from '../context/CartContext';
 import { useFeedback } from '../context/FeedbackContext';
 import { useFetch } from './ui';
 import { categoryIcon } from '../utils/icons';
-import { initials } from '../utils/format';
 import api, { fileUrl } from '../api/client';
 import { useStorefront } from '../context/StorefrontContext';
 
@@ -140,7 +140,7 @@ export default function Header() {
             {user ? (
               <div className="dropdown" ref={menuRef}>
                 <button className="icon-btn" style={{ padding: 0, overflow: 'hidden' }} onClick={() => setMenu((m) => !m)} aria-label="Mon compte" aria-expanded={menu}>
-                  <span className="avatar" style={{ width: 40, height: 40, fontSize: '.85rem' }}>{initials(user)}</span>
+                  <UserAvatar user={user} size={40} />
                 </button>
                 {menu && (
                   <div className="dropdown-menu">

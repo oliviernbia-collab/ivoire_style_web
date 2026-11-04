@@ -45,16 +45,20 @@ api.interceptors.response.use(
   async (error) => {
     const original = error.config;
     const status = error.response?.status;
-    const isAuthCall = original?.url?.startsWith('/auth/');
+    // Seules les routes d'identification sont exclues du renouvellement (pas /auth/me, /auth/me/avatar…)
+    const isAuthCall = /^\/auth\/(login|register|refresh|logout|forgot-password|reset-password)\b/.test(original?.url || '');
     if (status === 401 && tokens.refresh && !original._retry && !isAuthCall) {
       original._retry = true;
+      const used = tokens.refresh;
       try {
-        refreshing = refreshing || axios.post(`${API_URL}/auth/refresh`, { refresh_token: tokens.refresh })
+        refreshing = refreshing || axios.post(`${API_URL}/auth/refresh`, { refresh_token: used })
           .then((r) => { tokens.set(r.data.data); return r.data.data; })
           .finally(() => { refreshing = null; });
         await refreshing;
         return api(original);
       } catch {
+        // Un autre onglet vient de renouveler la session : on réessaie avec ses nouveaux jetons
+        if (tokens.refresh && tokens.refresh !== used) return api(original);
         tokens.clear();
         onSessionExpired();
       }

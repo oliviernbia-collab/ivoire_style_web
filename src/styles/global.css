@@ -680,3 +680,10 @@ button { font-family: inherit; }
 .delivery-rates summary::-webkit-details-marker { display: none; }
 .delivery-rates-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
 .plain-list { list-style: none; margin: 6px 0; padding: 0; display: grid; gap: 4px; }
+/* Photo de profil */
+.avatar-editor { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.avatar-editor-photo { position: relative; border: 0; padding: 0; background: none; cursor: pointer; border-radius: 50%; }
+.avatar-editor-photo:disabled { cursor: progress; }
+.avatar-editor-badge { position: absolute; right: 0; bottom: 0; width: 32px; height: 32px; border-radius: 50%; background: var(--gold);
+  color: #fff; display: flex; align-items: center; justify-content: center; border: 3px solid #fff; font-size: .8rem; }
+.avatar-editor-photo:hover .avatar-editor-badge { background: var(--gold-dark); }

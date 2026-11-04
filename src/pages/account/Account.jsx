@@ -1,17 +1,18 @@
 import { useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faUser, faBoxOpen, faLocationDot, faHeart, faBell, faFloppyDisk, faKey, faTrashCan, faPlus, faPen, faStar,
   faCircleCheck, faBan, faRotateLeft, faCreditCard, faTruckFast, faStore, faArrowLeft, faCheckDouble, faEnvelopeOpen,
-  faGift, faCopy,
+  faGift, faCopy, faHandHoldingDollar, faMagnifyingGlass, faXmark,
 } from '@fortawesome/free-solid-svg-icons';
-import api, { apiError } from '../../api/client';
+import api, { apiError, tokens } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { useFeedback } from '../../context/FeedbackContext';
 import { useLive } from '../../context/RealtimeContext';
 import { PageHead, SpaceLayout } from '../../components/Layouts';
 import AddressForm from '../../components/AddressForm';
+import { AvatarEditor } from '../../components/Avatar';
 import { PaymentLabel, paymentLabel } from '../../components/PaymentLogo';
 import { ProductGrid } from '../../components/ProductCard';
 import {
@@ -50,6 +51,8 @@ export function Profile() {
   });
   const savePwd = pwd.submit(async (v) => {
     const { data } = await api.post('/auth/change-password', { current_password: v.current_password, new_password: v.new_password });
+    // Les autres sessions sont fermées : cet appareil garde la sienne avec les nouveaux jetons
+    if (data.data?.refresh_token) tokens.set(data.data);
     pwd.setValues({ current_password: '', new_password: '', confirm: '' });
     return data;
   }, { validate: (v) => ({ confirm: v.new_password !== v.confirm && 'Les mots de passe ne correspondent pas' }) });
@@ -70,6 +73,7 @@ export function Profile() {
   return (
     <>
       <PageHead icon={faUser} title="Mon profil" />
+      <div className="card mb-2"><AvatarEditor /></div>
       <form className="card form-grid" onSubmit={saveProfile} noValidate>
         <Field label="Prénom" error={profile.errors.first_name} required><input className="input" value={profile.values.first_name} onChange={profile.set('first_name')} /></Field>
         <Field label="Nom" error={profile.errors.last_name} required><input className="input" value={profile.values.last_name} onChange={profile.set('last_name')} /></Field>
@@ -426,11 +430,36 @@ export function Wishlist() {
   );
 }
 
+// Catégories de notifications (mêmes clés que l'API) : libellé et icône
+const NOTIF_CATEGORIES = [
+  ['orders', 'Commandes', faBoxOpen], ['payments', 'Paiements', faCreditCard], ['refunds', 'Remboursements', faRotateLeft],
+  ['payouts', 'Reversements', faHandHoldingDollar], ['shop', 'Boutique', faStore], ['promotions', 'Promotions', faGift],
+  ['other', 'Autres', faBell],
+];
+const NOTIF_ICON = Object.fromEntries(NOTIF_CATEGORIES.map(([k, , icon]) => [k, icon]));
+const NOTIF_PERIODS = [['', 'Toute période'], ['0', 'Aujourd’hui'], ['6', '7 derniers jours'], ['29', '30 derniers jours'], ['custom', 'Dates précises']];
+const ymd = (d) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+
 export function Notifications() {
-  const { data, loading, error, reload } = useFetch('/account/notifications');
+  // Filtres conservés dans l'adresse de la page (retour arrière, lien partageable)
+  const [params, setParams] = useSearchParams();
+  const f = Object.fromEntries(params.entries());
+  const [q, setQ] = useState(f.q || '');
+  const period = f.period || '';
+  const range = period === 'custom' ? { from: f.from, to: f.to } : period ? { from: ymd(new Date(Date.now() - Number(period) * 86400000)), to: ymd(new Date()) } : {};
+  const query = { category: f.category, status: f.status, q: f.q, page: f.page, ...range };
+  const { data, meta, loading, error, reload } = useFetch('/account/notifications', query);
   useLive('*', () => reload({ silent: true }));
   const { notify } = useFeedback();
   const navigate = useNavigate();
+
+  const setFilter = (changes) => {
+    const next = new URLSearchParams(params);
+    Object.entries(changes).forEach(([k, v]) => (v ? next.set(k, v) : next.delete(k)));
+    if (!('page' in changes)) next.delete('page'); // tout changement de filtre revient à la première page
+    setParams(next, { replace: true });
+  };
+  const active = Boolean(f.category || f.status || f.q || period);
   const readAll = async () => {
     const { data: r } = await api.post('/account/notifications/read-all');
     notify.success(r.message);
@@ -440,25 +469,63 @@ export function Notifications() {
     if (!n.read_at) await api.patch(`/account/notifications/${n.id}/read`).catch(() => {});
     if (n.link) navigate(n.link); else reload();
   };
+  const counts = data?.counts || {};
+
   return (
     <>
       <PageHead icon={faBell} title="Notifications">
-        {data?.unread > 0 && <button className="btn btn-outline btn-sm" onClick={readAll}><FontAwesomeIcon icon={faCheckDouble} /> Tout marquer comme lu</button>}
+        {data?.unread > 0 && <button className="btn btn-outline btn-sm" onClick={readAll}><FontAwesomeIcon icon={faCheckDouble} /> Tout marquer comme lu ({data.unread})</button>}
       </PageHead>
+
+      <div className="card stack mb-2" style={{ gap: 12 }}>
+        <div className="chips" role="group" aria-label="Catégorie">
+          <button className={`chip ${!f.category ? 'on' : ''}`} onClick={() => setFilter({ category: null })}>Toutes ({counts.all ?? 0})</button>
+          {NOTIF_CATEGORIES.filter(([k]) => counts[k] > 0 || f.category === k).map(([k, label, icon]) => (
+            <button key={k} className={`chip ${f.category === k ? 'on' : ''}`} onClick={() => setFilter({ category: k })}>
+              <FontAwesomeIcon icon={icon} /> {label} ({counts[k] ?? 0})
+            </button>
+          ))}
+        </div>
+        <div className="flex flex-wrap" style={{ gap: 10 }}>
+          <div className="chips" role="group" aria-label="État">
+            {[['', 'Toutes'], ['unread', 'Non lues'], ['read', 'Lues']].map(([k, label]) => (
+              <button key={k} className={`chip ${(f.status || '') === k ? 'on' : ''}`} onClick={() => setFilter({ status: k })}>{label}</button>
+            ))}
+          </div>
+          <select className="select" style={{ width: 'auto' }} value={period} aria-label="Période"
+            onChange={(e) => setFilter({ period: e.target.value, from: e.target.value === 'custom' ? ymd(new Date(Date.now() - 6 * 86400000)) : null, to: e.target.value === 'custom' ? ymd(new Date()) : null })}>
+            {NOTIF_PERIODS.map(([k, label]) => <option key={k} value={k}>{label}</option>)}
+          </select>
+          {period === 'custom' && (
+            <>
+              <input className="input" type="date" style={{ width: 'auto' }} value={f.from || ''} max={f.to || undefined} aria-label="Du" onChange={(e) => setFilter({ from: e.target.value })} />
+              <input className="input" type="date" style={{ width: 'auto' }} value={f.to || ''} min={f.from || undefined} aria-label="Au" onChange={(e) => setFilter({ to: e.target.value })} />
+            </>
+          )}
+          <form className="search grow" style={{ minWidth: 200 }} onSubmit={(e) => { e.preventDefault(); setFilter({ q: q.trim() }); }}>
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher (n° de commande, mot…)" aria-label="Rechercher" />
+            <button aria-label="Rechercher"><FontAwesomeIcon icon={faMagnifyingGlass} /></button>
+          </form>
+          {active && <button className="btn btn-ghost btn-sm" onClick={() => { setQ(''); setParams({}, { replace: true }); }}><FontAwesomeIcon icon={faXmark} /> Réinitialiser</button>}
+        </div>
+      </div>
+
       {loading ? <Loader /> : error ? <ErrorState message={error} onRetry={reload} /> : data.items.length === 0 ? (
-        <Empty icon={faEnvelopeOpen} title="Aucune notification" />
+        <Empty icon={faEnvelopeOpen} title={active ? 'Aucune notification pour ces filtres' : 'Aucune notification'}
+          text={active ? 'Modifiez ou réinitialisez les filtres.' : undefined} />
       ) : (
         <div className="stack">
           {data.items.map((n) => (
             <button key={n.id} onClick={() => open(n)} className="card flex"
               style={{ textAlign: 'left', cursor: 'pointer', font: 'inherit', background: n.read_at ? '#fff' : 'var(--gold-soft)', borderColor: n.read_at ? 'var(--line)' : 'var(--gold-light)' }}>
-              <span className="avatar" style={{ background: n.read_at ? 'var(--line-2)' : undefined }}><FontAwesomeIcon icon={faBell} /></span>
+              <span className="avatar" style={{ background: n.read_at ? 'var(--line-2)' : undefined }}><FontAwesomeIcon icon={NOTIF_ICON[n.category] || faBell} /></span>
               <div className="grow"><b>{n.title}</b>{n.body && <div className="small muted">{n.body}</div>}</div>
-              <span className="small muted">{date(n.created_at, true)}</span>
+              <span className="small muted" style={{ whiteSpace: 'nowrap' }}>{date(n.created_at, true)}</span>
             </button>
           ))}
         </div>
       )}
+      <Pagination meta={meta} onChange={(p) => setFilter({ page: String(p) })} />
     </>
   );
 }

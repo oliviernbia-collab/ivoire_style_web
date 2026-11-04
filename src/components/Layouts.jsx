@@ -2,7 +2,7 @@ import { Navigate, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { useAuth } from '../context/AuthContext';
 import { Loader } from './ui';
-import { initials } from '../utils/format';
+import { UserAvatar } from './Avatar';
 
 /** Protège une route : connexion requise (+ rôle éventuel). */
 export function RequireAuth({ roles, children }) {
@@ -24,7 +24,7 @@ export function SpaceLayout({ links, title, subtitle, avatar, fixed = false }) {
     <div className={fixed ? 'space space-fixed' : 'container space'}>
       <aside className="sidebar" aria-label={title}>
         <div className="who">
-          <div className="avatar">{avatar || initials(user)}</div>
+          {avatar ? <div className="avatar">{avatar}</div> : <UserAvatar user={user} />}
           <div style={{ minWidth: 0 }}>
             <b style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</b>
             <span className="small muted">{subtitle}</span>
