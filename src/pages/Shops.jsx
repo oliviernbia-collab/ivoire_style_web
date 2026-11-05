@@ -9,6 +9,7 @@ import { fileUrl } from '../api/client';
 import { date, price } from '../utils/format';
 import { absoluteUrl, breadcrumbLd, shareImage, snippet, useSeo } from '../utils/seo';
 import DeliveryRates from '../components/DeliveryRates';
+import { useAuth } from '../context/AuthContext';
 
 export function ShopList() {
   const [q, setQ] = useState('');
@@ -55,6 +56,8 @@ export function ShopPage() {
   const { slug } = useParams();
   const [params, setParam] = useParamsState();
   const { data: shop, loading, error } = useFetch(`/shops/${slug}`);
+  const { user } = useAuth();
+  const isOwner = user?.shop?.slug === slug;
   const query = Object.fromEntries(params.entries());
   const products = useFetch(`/shops/${slug}/products`, query);
   // Boutique : fiche « magasin de vêtements » (schema.org) ; filtres et pages suivantes non indexés
@@ -82,6 +85,19 @@ export function ShopPage() {
   if (error) return <div className="container"><ErrorState message={error} /></div>;
   return (
     <>
+      {isOwner && (
+        // Le vendeur qui ouvre son propre lien voit son compte en haut de page : ses clients, eux, ne le voient pas
+        <div className="container mt-1">
+          <div className="alert alert-gold small mb-0">
+            <FontAwesomeIcon icon={faStore} /> C’est votre boutique : vous la voyez connecté à votre compte. Vos clients
+            voient seulement vos articles, sans accès à votre compte ni à votre espace vendeur. Pour la voir comme eux,
+            ouvrez le lien dans une fenêtre de navigation privée.
+          </div>
+        </div>
+      )}
+      {shop.banner_url && (
+        <div className="shop-banner"><img src={fileUrl(shop.banner_url, { w: 1600 })} alt={`Bannière de ${shop.name}`} /></div>
+      )}
       <div className="shop-hero">
         <div className="container flex" style={{ gap: 20 }}>
           <div className="shop-logo" style={{ width: 96, height: 96, fontSize: '2.2rem' }}>

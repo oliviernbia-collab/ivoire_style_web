@@ -1,15 +1,15 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faEnvelope, faLock, faEye, faEyeSlash, faUser, faPhone, faRightToBracket, faUserPlus, faKey, faCircleCheck,
 } from '@fortawesome/free-solid-svg-icons';
 import logo from '../assets/logo.png';
-import api from '../api/client';
+import api, { apiError, tokens } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { useFeedback } from '../context/FeedbackContext';
-import { Field, SubmitButton, useForm } from '../components/ui';
+import { ErrorState, Field, Loader, SubmitButton, useForm } from '../components/ui';
 
 function AuthShell({ children, title, subtitle }) {
   return (
@@ -186,5 +186,51 @@ export function ResetPassword() {
         <SubmitButton loading={submitting} className="btn-block">Enregistrer</SubmitButton>
       </form>
     </AuthShell>
+  );
+}
+
+/**
+ * Arrivée depuis l'application mobile (« Ouvrir l'espace vendeur web ») : le code à usage unique, placé après le #
+ * (jamais envoyé au serveur web ni gardé dans l'historique), est échangé contre une session du compte de l'application.
+ * Une éventuelle autre session ouverte dans ce navigateur est fermée.
+ */
+export function AppHandoff() {
+  const { setUser } = useAuth();
+  const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const [error, setError] = useState(null);
+  const started = useRef(false);
+
+  useEffect(() => {
+    if (started.current) return; // une seule tentative (le code ne sert qu'une fois)
+    started.current = true;
+    const code = window.location.hash.slice(1);
+    window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    const raw = params.get('next') || '/vendeur';
+    const next = raw.startsWith('/') && !raw.startsWith('//') ? raw : '/vendeur';
+    if (!/^[a-f0-9]{64}$/.test(code)) { setError('Lien de connexion invalide. Rouvrez-le depuis l’application.'); return; }
+    (async () => {
+      if (tokens.refresh) {
+        await api.post('/auth/logout', { refresh_token: tokens.refresh }).catch(() => {});
+        tokens.clear();
+      }
+      try {
+        const { data } = await api.post('/auth/handoff/redeem', { code });
+        tokens.set(data.data);
+        setUser(data.data.user);
+        navigate(next, { replace: true });
+      } catch (e) {
+        setUser(null);
+        setError(apiError(e));
+      }
+    })();
+  }, [params, navigate, setUser]);
+
+  if (!error) return <Loader label="Connexion à votre compte…" />;
+  return (
+    <div className="container" style={{ maxWidth: 520, padding: '48px 16px' }}>
+      <ErrorState message={error} />
+      <div className="mt-2" style={{ textAlign: 'center' }}><Link to="/connexion" className="btn">Se connecter</Link></div>
+    </div>
   );
 }

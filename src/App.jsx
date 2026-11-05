@@ -11,7 +11,7 @@ import Home from './pages/Home';
 import Catalog from './pages/Catalog';
 import ProductPage from './pages/ProductPage';
 import { ShopList, ShopPage } from './pages/Shops';
-import { ForgotPassword, Login, Register, ResetPassword } from './pages/Auth';
+import { AppHandoff, ForgotPassword, Login, Register, ResetPassword } from './pages/Auth';
 import Cart from './pages/Cart';
 import Checkout from './pages/Checkout';
 import Payment from './pages/Payment';
@@ -55,7 +55,7 @@ function ScrollToTop() {
 // Pages privées ou sans intérêt pour les moteurs de recherche : jamais indexées
 const PRIVATE_PAGES = [
   ['/compte', 'Mon compte'], ['/vendeur', 'Espace vendeur'], ['/admin', 'Administration'], ['/panier', 'Mon panier'],
-  ['/commande', 'Validation de la commande'], ['/paiement', 'Paiement'], ['/connexion', 'Connexion'],
+  ['/commande', 'Validation de la commande'], ['/paiement', 'Paiement'], ['/connexion', 'Connexion'], ['/connexion-app', 'Connexion'],
   ['/inscription', 'Créer un compte'], ['/mot-de-passe-oublie', 'Mot de passe oublié'],
   ['/reinitialiser-mot-de-passe', 'Nouveau mot de passe'], ['/b/', 'Boutique'],
 ];
@@ -91,6 +91,7 @@ export default function App() {
           <Route path="/boutiques" element={<StorefrontGuard><ShopList /></StorefrontGuard>} />
           <Route path="/boutique/:slug" element={<ShopPage />} />
           <Route path="/connexion" element={<Login />} />
+          <Route path="/connexion-app" element={<AppHandoff />} />
           <Route path="/inscription" element={<Register />} />
           <Route path="/mot-de-passe-oublie" element={<ForgotPassword />} />
           <Route path="/reinitialiser-mot-de-passe" element={<ResetPassword />} />

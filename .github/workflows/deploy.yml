@@ -1,0 +1,62 @@
+# Déploiement continu du site web (racine du domaine ivoire-style.site : public_html/ivoire-style.site) par FTP
+# chiffré, à chaque envoi sur main. Le dossier « api » (application Node.js de cPanel) n'est jamais touché.
+# Secrets GitHub : FTP_SERVER, FTP_USERNAME, FTP_PASSWORD. Variable facultative : FTP_DIR (racine du site vue par
+# ce compte FTP, « ./ » par défaut pour un compte FTP limité à public_html/ivoire-style.site). Voir DEPLOIEMENT.md.
+name: Déploiement site web
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploiement-web
+  cancel-in-progress: false
+
+jobs:
+  deployer:
+    name: Build et mise en ligne
+    runs-on: ubuntu-latest
+    env:
+      FTP_DIR: ${{ vars.FTP_DIR || './' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build de production
+        env:
+          VITE_SITE_URL: https://ivoire-style.site
+        run: npm run build
+
+      # Fichiers versionnés d'abord : la nouvelle page index.html ne référence que des fichiers déjà en ligne
+      - name: Envoi des fichiers versionnés
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          local-dir: ./dist/assets/
+          server-dir: ${{ env.FTP_DIR }}assets/
+      - name: Envoi des pages et du .htaccess
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          local-dir: ./dist/
+          server-dir: ${{ env.FTP_DIR }}
+          exclude: |
+            assets/**
+            api/**
+
+      - name: Contrôle du site en ligne
+        run: |
+          curl -fsS https://ivoire-style.site/ | grep -q 'id="root"'
+          curl -fsS -o /dev/null https://ivoire-style.site/vendeur
+          curl -fsS -o /dev/null https://ivoire-style.site/api/v1/health
+          echo "Site en ligne"

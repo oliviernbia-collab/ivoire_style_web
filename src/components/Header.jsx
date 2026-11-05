@@ -89,13 +89,22 @@ export default function Header() {
     navigate('/');
   };
 
+  // Numéro affiché au-dessus du menu : celui de la boutique, en vitrine (lien partagé) ou dans l'espace vendeur.
+  // Ailleurs, aucun numéro (celui de la plateforme reste dans le pied de page).
+  const phoneShop = vitrine || (location.pathname.startsWith('/vendeur') ? user?.shop : null);
+  const shopPhone = phoneShop?.phone;
+
   return (
     <>
-      <div className="topbar hide-mobile">
+      <div className={`topbar ${shopPhone ? 'has-phone' : 'hide-mobile'}`}>
         <div className="container">
           <span><FontAwesomeIcon icon={faTruckFast} /> Livraison assurée par chaque boutique, partout en Côte d’Ivoire</span>
           <span><FontAwesomeIcon icon={faShieldHalved} /> Payez en ligne la totalité, la moitié, ou seulement {settings?.deposit_rate ?? 10} % et le reste à la livraison</span>
-          <span><FontAwesomeIcon icon={faPhone} /> {settings?.contact_phone}</span>
+          {shopPhone && (
+            <a className="topbar-phone" href={`tel:${shopPhone.replace(/\s/g, '')}`}>
+              <FontAwesomeIcon icon={faPhone} /> {phoneShop.name} : <b>{shopPhone}</b>
+            </a>
+          )}
         </div>
       </div>
       <header className="header" ref={headerRef}>

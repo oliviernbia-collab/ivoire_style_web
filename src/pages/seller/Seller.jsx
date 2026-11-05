@@ -21,6 +21,7 @@ import {
   ABIDJAN_COMMUNES, AUDIENCES, CITIES, date, DELIVERY_MODES, ORDER_STATUS, PAYMENT_PLANS, PAYMENT_STATUS, price, PRODUCT_STATUS,
   showPaymentStatus,
 } from '../../utils/format';
+import { colorFromName } from '../../utils/colors';
 
 export function SellerLayout() {
   const { user } = useAuth();
@@ -33,7 +34,7 @@ export function SellerLayout() {
         { to: '/vendeur/produits', icon: faShirt, label: 'Mes vêtements' },
         { to: '/vendeur/commandes', icon: faBoxOpen, label: 'Commandes' },
         { to: '/vendeur/finances', icon: faWallet, label: 'Finances' },
-        { to: '/vendeur/boutique', icon: faGear, label: 'Ma boutique' },
+        { to: '/vendeur/boutique', icon: faGear, label: 'Paramètres' },
         { to: `/boutique/${user.shop.slug}`, icon: faStore, label: 'Voir ma vitrine' },
       ]} />
   );
@@ -282,7 +283,7 @@ export function SellerProductForm() {
   const [progress, setProgress] = useState(null); // % d'envoi des médias
   const [removed, setRemoved] = useState([]);
   const fileRef = useRef(null);
-  const [bulk, setBulk] = useState({ color: '', color_hex: '#C9A227', price: '', stock: '', preset: 'Adulte' });
+  const [bulk, setBulk] = useState({ color: '', color_hex: '#C9A227', price: '', compare: '', stock: '', preset: 'Adulte' });
   const [showBulk, setShowBulk] = useState(false);
   const { values, set, setValues, errors, submitting, submit } = useForm({
     name: '', category_id: '', description: '', audience: 'unisexe', material: '', fit: '', care: '', origin: 'Côte d’Ivoire', size_guide: '',
@@ -314,6 +315,11 @@ export function SellerProductForm() {
   const sellerNet = (p) => Number(p) - Math.round((Number(p) * commissionRate) / 100);
 
   const setV = (i, k) => (e) => setVariants((vs) => vs.map((v, j) => (j === i ? { ...v, [k]: e.target.value } : v)));
+  // Couleur saisie en toutes lettres : la pastille prend la teinte correspondante (reste modifiable à la main)
+  const setColor = (i) => (e) => {
+    const hex = colorFromName(e.target.value);
+    setVariants((vs) => vs.map((v, j) => (j === i ? { ...v, color: e.target.value, ...(hex ? { color_hex: hex } : {}) } : v)));
+  };
   const addFiles = (files) => {
     const all = [...files];
     const accepted = all.filter((f) => {
@@ -344,7 +350,10 @@ export function SellerProductForm() {
   };
   const applyBulk = () => {
     if (!bulk.color || !bulk.price) return notify.error('Indiquez au moins la couleur et le prix');
-    const rows = SIZE_PRESETS[bulk.preset].map((size) => ({ ...emptyVariant(), size, color: bulk.color, color_hex: bulk.color_hex, price: bulk.price, stock_quantity: bulk.stock || 0 }));
+    if (bulk.compare && Number(bulk.compare) <= Number(bulk.price)) return notify.error('Le prix barré doit être supérieur à votre prix');
+    const rows = SIZE_PRESETS[bulk.preset].map((size) => ({
+      ...emptyVariant(), size, color: bulk.color, color_hex: bulk.color_hex, price: bulk.price, compare_at_price: bulk.compare, stock_quantity: bulk.stock || 0,
+    }));
     setVariants((vs) => [...vs.filter((v) => v.size || v.color), ...rows]);
     setShowBulk(false);
     notify.success(`${rows.length} variantes ajoutées`);
@@ -386,7 +395,8 @@ export function SellerProductForm() {
       category_id: !v.category_id && 'Choisissez une catégorie',
       images: submitForReview && !keptMedia.some((m) => m.media_type !== 'video') && !newFiles.some((f) => !isVideoFile(f))
         && 'Ajoutez au moins une photo',
-      variants: variants.some((x) => !x.size || !x.color || !x.price) && 'Complétez la taille, la couleur et le prix de chaque variante',
+      variants: (variants.some((x) => !x.size || !x.color || !x.price) && 'Complétez la taille, la couleur et le prix de chaque variante')
+        || (variants.some((x) => x.compare_at_price && Number(x.compare_at_price) <= Number(x.price)) && 'Le prix barré doit être supérieur à votre prix'),
     }),
   });
 
@@ -488,7 +498,7 @@ export function SellerProductForm() {
                     <td>
                       <div className="flex" style={{ gap: 6 }}>
                         <input type="color" value={v.color_hex} onChange={setV(i, 'color_hex')} aria-label="Teinte" style={{ width: 38, height: 38, border: 0, background: 'none', padding: 0 }} />
-                        <input className="input" style={{ minWidth: 100 }} value={v.color} onChange={setV(i, 'color')} placeholder="Noir" aria-label="Couleur" />
+                        <input className="input" style={{ minWidth: 100 }} value={v.color} onChange={setColor(i)} placeholder="Noir" aria-label="Couleur" />
                       </div>
                     </td>
                     <td><input className="input" type="number" min="0" style={{ minWidth: 100 }} value={v.price} onChange={setV(i, 'price')} aria-label="Votre prix" /></td>
@@ -531,10 +541,17 @@ export function SellerProductForm() {
             </Field>
             <Field label="Couleur"><div className="flex" style={{ gap: 6 }}>
               <input type="color" value={bulk.color_hex} onChange={(e) => setBulk({ ...bulk, color_hex: e.target.value })} style={{ width: 38, height: 38, border: 0, padding: 0 }} aria-label="Teinte" />
-              <input className="input" value={bulk.color} onChange={(e) => setBulk({ ...bulk, color: e.target.value })} placeholder="Noir" />
+              <input className="input" value={bulk.color} placeholder="Noir" onChange={(e) => {
+                const hex = colorFromName(e.target.value);
+                setBulk({ ...bulk, color: e.target.value, ...(hex ? { color_hex: hex } : {}) });
+              }} />
             </div></Field>
             <Field label="Votre prix (FCFA)" hint={Number(bulk.price) > 0 ? `Prix client : ${price(clientPrice(bulk.price))}` : `Le client paiera +${feeRate} %`}>
               <input className="input" type="number" min="0" value={bulk.price} onChange={(e) => setBulk({ ...bulk, price: e.target.value })} />
+            </Field>
+            <Field label="Votre prix barré (facultatif)"
+              hint={Number(bulk.compare) > 0 ? `Prix barré client : ${price(clientPrice(bulk.compare))}` : 'Ancien prix affiché barré, supérieur à votre prix'}>
+              <input className="input" type="number" min="0" value={bulk.compare} onChange={(e) => setBulk({ ...bulk, compare: e.target.value })} placeholder="—" />
             </Field>
             <Field label="Stock par taille"><input className="input" type="number" min="0" value={bulk.stock} onChange={(e) => setBulk({ ...bulk, stock: e.target.value })} /></Field>
           </div>
@@ -713,6 +730,7 @@ export function SellerShop() {
   const { refreshUser } = useAuth();
   const { data: shop, loading, error } = useFetch('/seller/shop');
   const [files, setFiles] = useState({});
+  const [bannerPreview, setBannerPreview] = useState(null);
   const { values, set, setValues, errors, submitting, submit } = useForm({
     description: '', phone: '', email: '', city: '', commune: '', address: '',
     payout_method: 'orange_money', payout_account: '', payout_holder: '',
@@ -756,7 +774,7 @@ export function SellerShop() {
 
   return (
     <>
-      <PageHead icon={faGear} title="Ma boutique" />
+      <PageHead icon={faGear} title="Paramètres" />
       <ShopLinkCard slug={shop.slug} name={shop.name} />
       <form className="card form-grid mt-2" onSubmit={onSubmit} noValidate>
         <div className="full flex">
@@ -765,7 +783,16 @@ export function SellerShop() {
             <div className="small muted">{shop.is_official ? 'Boutique officielle : sans commission' : 'Commission de 5 % sur vos prix, retenue au reversement (livraison exclue)'} · Validée le {date(shop.approved_at)}</div></div>
         </div>
         <Field label="Nouveau logo"><input className="input" type="file" accept="image/*" onChange={(e) => setFiles({ ...files, logo: e.target.files[0] })} /></Field>
-        <Field label="Bannière"><input className="input" type="file" accept="image/*" onChange={(e) => setFiles({ ...files, banner: e.target.files[0] })} /></Field>
+        <Field label="Bannière" hint="Affichée en haut de votre page boutique et dans les aperçus de vos liens partagés (format conseillé : 1600 × 400).">
+          <input className="input" type="file" accept="image/*" onChange={(e) => {
+            const file = e.target.files[0];
+            setFiles({ ...files, banner: file });
+            setBannerPreview(file ? URL.createObjectURL(file) : null);
+          }} />
+          {(bannerPreview || shop.banner_url) && (
+            <img className="shop-banner-preview" src={bannerPreview || fileUrl(shop.banner_url, { w: 960 })} alt="Aperçu de la bannière" />
+          )}
+        </Field>
         <Field label="Description" error={errors.description} required className="full"><textarea className="textarea" value={values.description} onChange={set('description')} /></Field>
         <Field label="Téléphone" error={errors.phone} required><input className="input" value={values.phone} onChange={set('phone')} /></Field>
         <Field label="E-mail" error={errors.email} required><input className="input" value={values.email} onChange={set('email')} /></Field>
