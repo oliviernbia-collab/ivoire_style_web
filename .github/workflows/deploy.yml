@@ -31,17 +31,11 @@ jobs:
           VITE_SITE_URL: https://ivoire-style.site
         run: npm run build
 
-      # Fichiers versionnés d'abord : la nouvelle page index.html ne référence que des fichiers déjà en ligne
-      - name: Envoi des fichiers versionnés
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ftps
-          local-dir: ./dist/assets/
-          server-dir: ${{ env.FTP_DIR }}assets/
-      - name: Envoi des pages et du .htaccess
+      # Une seule connexion (le serveur FTP de LWS refuse les reconnexions trop rapprochées) ;
+      # en cas d'échec, nouvel essai après une pause
+      - name: Envoi du site
+        id: envoi
+        continue-on-error: true
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.FTP_SERVER }}
@@ -50,9 +44,19 @@ jobs:
           protocol: ftps
           local-dir: ./dist/
           server-dir: ${{ env.FTP_DIR }}
-          exclude: |
-            assets/**
-            api/**
+      - name: Pause avant un nouvel essai
+        if: steps.envoi.outcome == 'failure'
+        run: sleep 60
+      - name: Envoi du site (nouvel essai)
+        if: steps.envoi.outcome == 'failure'
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          local-dir: ./dist/
+          server-dir: ${{ env.FTP_DIR }}
 
       - name: Contrôle du site en ligne
         run: |
