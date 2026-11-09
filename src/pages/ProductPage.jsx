@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faCartPlus, faHeart as faHeartSolid, faStore, faTruckFast, faRotateLeft, faShieldHalved, faMinus, faPlus,
-  faRulerHorizontal, faCircleCheck, faTriangleExclamation, faChevronRight, faBolt, faStar, faPlay,
+  faRulerHorizontal, faCircleCheck, faTriangleExclamation, faChevronRight, faBolt, faStar, faPlay, faMagnifyingGlassPlus,
 } from '@fortawesome/free-solid-svg-icons';
 import { faHeart } from '@fortawesome/free-regular-svg-icons';
 import { ErrorState, Loader, OfficialBadge, Price, ProductImage, ProductMedia, Stars, useFetch } from '../components/ui';
@@ -15,6 +15,10 @@ import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { AUDIENCES, date, price } from '../utils/format';
 import { absoluteUrl, breadcrumbLd, shareImage, snippet, useSeo } from '../utils/seo';
+import ImageViewer from '../components/ImageViewer';
+import { isVideoUrl } from '../api/client';
+
+const isPhoto = (im) => Boolean(im) && im.media_type !== 'video' && !isVideoUrl(im.url);
 
 function productSeo(p) {
   const url = absoluteUrl(`/produit/${p.slug}`);
@@ -76,6 +80,7 @@ export default function ProductPage() {
   const [qty, setQty] = useState(1);
   const [tab, setTab] = useState('desc');
   const [adding, setAdding] = useState(false);
+  const [viewer, setViewer] = useState(null); // index de la photo ouverte en plein écran
 
   useEffect(() => {
     if (!p) return;
@@ -99,6 +104,7 @@ export default function ProductPage() {
   if (error) return <div className="container"><ErrorState message={error} onRetry={reload} /></div>;
 
   const fav = favorites.has(p.id);
+  const photos = p.images.filter(isPhoto);
   const outOfStock = p.variants.every((v) => v.stock <= 0);
 
   const handleAdd = async (buyNow = false) => {
@@ -119,7 +125,19 @@ export default function ProductPage() {
             <Link to={`/catalogue?category=${p.category_slug}`}>{p.category_name}</Link> <FontAwesomeIcon icon={faChevronRight} size="xs" />
             <span>{p.name}</span>
           </nav>
-          <div className="gallery-main"><ProductMedia key={p.images[img]?.id} media={p.images[img]} alt={p.images[img]?.alt || p.name} /></div>
+          {isPhoto(p.images[img]) ? (
+            // Photo : ouverte dans la visionneuse plein écran (zoom limité à la photo, jamais à la page)
+            <button type="button" className="gallery-main gallery-zoom" onClick={() => setViewer(photos.indexOf(p.images[img]))}
+              aria-label="Agrandir la photo">
+              <ProductMedia key={p.images[img]?.id} media={p.images[img]} alt={p.images[img]?.alt || p.name} />
+              <span className="gallery-zoom-hint"><FontAwesomeIcon icon={faMagnifyingGlassPlus} /></span>
+            </button>
+          ) : (
+            <div className="gallery-main"><ProductMedia key={p.images[img]?.id} media={p.images[img]} alt={p.images[img]?.alt || p.name} /></div>
+          )}
+          {viewer !== null && (
+            <ImageViewer images={photos} start={viewer} alt={p.name} onClose={() => setViewer(null)} />
+          )}
           {p.images.length > 1 && (
             <div className="gallery-thumbs">
               {p.images.map((im, i) => (
