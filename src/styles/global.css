@@ -314,8 +314,10 @@ button { font-family: inherit; }
 }
 
 /* ---------------- Fiche produit ---------------- */
-.pdp { display: grid; grid-template-columns: 1.05fr 1fr; gap: 40px; padding-top: 28px; padding-bottom: 40px; }
-@media (max-width: 900px) { .pdp { grid-template-columns: 1fr; gap: 24px; } }
+/* minmax(0, …) : une longue rangée de miniatures défile au lieu d'élargir la colonne (et toute la page) */
+.pdp { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 40px; padding-top: 28px; padding-bottom: 40px; }
+.pdp > * { min-width: 0; }
+@media (max-width: 900px) { .pdp { grid-template-columns: minmax(0, 1fr); gap: 24px; } }
 .gallery-main { aspect-ratio: 4 / 5; border-radius: var(--radius); overflow: hidden; background: var(--gold-soft); border: 1px solid var(--line); }
 .gallery-main img { width: 100%; height: 100%; object-fit: cover; }
 /* Photo cliquable : pas de zoom de la page au double appui (la visionneuse s'en charge) */
