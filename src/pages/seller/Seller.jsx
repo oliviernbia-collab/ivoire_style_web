@@ -689,7 +689,8 @@ export function SellerFinances() {
       <div className="alert alert-gold mb-3">
         <FontAwesomeIcon icon={faWallet} />
         <span>Commandes en cours : <b>{price(f.upcoming)}</b> déjà payés en ligne, crédités à la livraison.<br />
-          Votre part vous est <b>versée automatiquement</b> sur votre compte Mobile Money après chaque livraison.<br />
+          Votre part vous est <b>versée automatiquement</b> sur votre compte Mobile Money après chaque livraison
+          {' '}(frais de virement de {f.payout_fee_rate} % déduits, 1 FCFA minimum).<br />
           Reversements sur <PaymentLabel code={f.payout_method} size={22} /> <b>{f.payout_account}</b>{f.payout_holder ? ` (${f.payout_holder})` : ''} ·{' '}
           <Link to="/vendeur/boutique#paiement" className="gold">modifier</Link></span>
       </div>
@@ -716,7 +717,8 @@ export function SellerFinances() {
               {f.payouts.map((p) => (
                 <tr key={p.id}><td className="small">{p.reference}</td><td className="small">{date(p.paid_at || p.created_at)}</td>
                   <td><span className={`badge ${p.status === 'paid' ? 'badge-success' : p.status === 'failed' ? 'badge-danger' : 'badge-warning'}`}>{p.status === 'paid' ? 'Payé' : p.status === 'failed' ? 'Échec' : 'En cours'}</span></td>
-                  <td style={{ textAlign: 'right' }}><b>{price(p.amount)}</b></td></tr>
+                  <td style={{ textAlign: 'right' }}><b>{price(p.amount - p.fee_amount)}</b>
+                    {p.fee_amount > 0 && <div className="small muted">{price(p.amount)} − {price(p.fee_amount)} de frais</div>}</td></tr>
               ))}
             </tbody>
           </table></div>

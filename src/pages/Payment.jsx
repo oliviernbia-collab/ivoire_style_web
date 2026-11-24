@@ -115,7 +115,7 @@ export default function Payment() {
     try {
       const { data } = await api.post('/payments/initiate',
         { order_id: o.id, provider: current, payer_phone: phone, return_to: 'web' },
-        { headers: { 'Idempotency-Key': crypto.randomUUID() } });
+        { headers: { 'Idempotency-Key': crypto.randomUUID() }, timeout: 90000 });
       const { payment: attempt, instructions } = data.data;
       setPaymentId(attempt.id);
       if (instructions.type === 'redirect' && instructions.url) {

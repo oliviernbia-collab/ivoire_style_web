@@ -686,7 +686,8 @@ export function AdminPayouts() {
         <tbody>
           {data.payouts.length === 0 && <tr><td colSpan={6} className="center muted">Aucun reversement</td></tr>}
           {data.payouts.map((p) => (
-            <tr key={p.id}><td className="small">{p.reference}</td><td>{p.shop_name}</td><td><b>{price(p.amount)}</b></td><td className="small">{date(p.created_at)}</td>
+            <tr key={p.id}><td className="small">{p.reference}</td><td>{p.shop_name}</td><td><b>{price(p.amount)}</b>
+              {p.fee_amount > 0 && <div className="small muted">envoyé {price(p.amount - p.fee_amount)} + {price(p.fee_amount)} de frais</div>}</td><td className="small">{date(p.created_at)}</td>
               <td><span className={`badge ${p.status === 'paid' ? 'badge-success' : p.status === 'failed' ? 'badge-danger' : 'badge-warning'}`}>
                 {p.status === 'paid' ? 'Payé' : p.status === 'failed' ? 'Échec' : p.provider_reference ? 'Virement Jèko en cours' : 'À payer'}</span>
                 {p.failure_reason && <div className="small muted">{p.failure_reason}</div>}</td>

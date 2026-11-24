@@ -7,17 +7,24 @@ import {
   faMobileScreenButton, faHandHoldingDollar,
 } from '@fortawesome/free-solid-svg-icons';
 import api, { apiError } from '../api/client';
+import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
+import { useFeedback } from '../context/FeedbackContext';
 import AddressForm from '../components/AddressForm';
-import { Loader, ProductImage, SubmitButton, useFetch, useForm } from '../components/ui';
+import { Field, Loader, ProductImage, SubmitButton, useFetch, useForm } from '../components/ui';
 import PaymentLogo, { paymentLabel } from '../components/PaymentLogo';
 import { price } from '../utils/format';
 
 const MODE_ICONS = { home: faHouse, office: faBuilding, shop_pickup: faStore };
+// Opérateurs qui confirment par USSD (demande de code sur le téléphone)
+const USSD = ['mtn_momo', 'moov_money'];
+const validPhone = (raw) => /^(01|05|07)\d{8}$/.test(String(raw || '').replace(/\D/g, '').replace(/^(00)?225/, ''));
 
 export default function Checkout() {
   const { cart, ready: cartReady, reload } = useCart();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { notify } = useFeedback();
   const [params] = useSearchParams();
   const addresses = useFetch('/account/addresses');
   const { data: settings } = useFetch('/settings/public');
@@ -34,6 +41,7 @@ export default function Checkout() {
 
   const { values, set, setValues, errors, submitting, submit } = useForm({
     address_id: null, delivery_mode: 'home', payment_plan: 'full', payment_method: 'orange_money', note: '', promo_code: '',
+    payer_phone: user?.phone || '',
   });
   const applyPromo = (code) => { setPromoInput(code); set('promo_code')(code.trim().toUpperCase()); };
 
@@ -65,16 +73,37 @@ export default function Checkout() {
       sub: `Acompte obligatoire de ${settings?.deposit_rate ?? 10} % en ligne, le reste à la livraison.` }] : []),
   ];
 
+  const jeko = settings?.payment_mode === 'jeko';
+
+  /**
+   * Paiement en 1 clic : la commande est créée et, en mode Jèko, le paiement part aussitôt chez l'opérateur
+   * (redirection Orange / Wave, ou code USSD MTN / Moov). La page de paiement ne sert plus qu'à attendre ou réessayer.
+   */
   const onSubmit = submit(async (v) => {
     const { data } = await api.post('/orders', {
       ...v, shop_id: shopId, delivery_mode: quote?.delivery_mode || v.delivery_mode,
       promo_code: quote?.promo ? v.promo_code : undefined, // code transmis seulement s'il a été validé par le devis
-    });
+      payer_phone: jeko ? v.payer_phone : undefined, return_to: 'web',
+    }, { timeout: 90000 }); // l'opérateur de paiement est contacté dans la foulée
     await reload();
-    const { order, payment } = data.data;
-    navigate(`/paiement/${payment.id}?commande=${order.id}`, { replace: true });
+    const { order, payment, instructions, payment_error: payError } = data.data;
+    const page = `/paiement/${payment.id}?commande=${order.id}`;
+    if (jeko && instructions?.type === 'redirect' && instructions.url) {
+      window.location.assign(instructions.url);
+    } else if (jeko && instructions?.type === 'ussd') {
+      notify.info(instructions.message);
+      navigate(`${page}&retour=1`, { replace: true });
+    } else {
+      if (payError) notify.error(`Commande enregistrée, mais le paiement n’a pas pu démarrer : ${payError}`);
+      navigate(page, { replace: true });
+    }
     return data;
-  }, { validate: (v) => ({ address_id: !v.address_id && 'Ajoutez une adresse de livraison' }) });
+  }, {
+    validate: (v) => ({
+      address_id: !v.address_id && 'Ajoutez une adresse de livraison',
+      payer_phone: jeko && !validPhone(v.payer_phone) && 'Numéro ivoirien à 10 chiffres (01, 05 ou 07…)',
+    }),
+  });
 
   const shopName = items[0]?.shop_name;
   const deposit = values.payment_plan !== 'full';
@@ -148,6 +177,13 @@ export default function Checkout() {
               ))}
             </div>
             {errors.payment_method && <span className="field-error">{errors.payment_method}</span>}
+            {jeko && (
+              <Field label={`Votre numéro ${paymentLabel(values.payment_method)}`} error={errors.payer_phone} required className="mt-2"
+                hint={`${USSD.includes(values.payment_method) ? 'Vous recevrez une demande de code secret sur ce numéro. ' : `Vous serez redirigé vers ${paymentLabel(values.payment_method)} pour valider. `}`
+                  + 'En cas d’annulation, le remboursement y sera envoyé.'}>
+                <input className="input" type="tel" value={values.payer_phone} onChange={set('payer_phone')} placeholder="07 00 00 00 00" />
+              </Field>
+            )}
             {settings?.payment_mode === 'sandbox' && (
               <div className="alert alert-gold small mt-2">Mode démonstration : le paiement Mobile Money est simulé, aucun débit réel.</div>
             )}
